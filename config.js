@@ -7,10 +7,13 @@
 // ---------------------------------------------------------------------
 
 window.BB_CONFIG = {
-  supabaseUrl: "https://pzxeauhieamxnoanlkjm.supabase.co",
-  supabaseAnonKey: "sb_publishable_BeJLYnRf6MIlu2b8_CDcPA_2SdbOEU6",
+  supabaseUrl: "https://YOUR-PROJECT-REF.supabase.co",
+  supabaseAnonKey: "YOUR-ANON-PUBLIC-KEY",
 
-  // Shown in the header and the browser tab.
-  title: "Battleship Bingo",
-  subtitle: "Enemy waters",
+  // Header, sign-in screen, and both exported PNGs.
+  title: "Ironkin Battleship Bingo",
+  subtitle: "Forged alone, bound as kin",
+
+  // Your team. Shown as a tag beside the wordmark and stamped on exports.
+  team: "Apey's Apes",
 };

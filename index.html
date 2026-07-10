@@ -6,23 +6,26 @@
 <title>Battleship Bingo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 <script src="./config.js"></script>
 <style>
   :root{
-    --abyss:#080D12;
-    --deep:#0E1820;
-    --hull:#152430;
-    --hull-2:#1B2E3B;
-    --line:#26404F;
-    --line-2:#3B6076;
-    --gold:#F2A33C;
-    --gold-dim:#8A6428;
-    --bone:#E7E0D2;
-    --mute:#7B8D99;
-    --hit:#E0453A;
-    --splash:#57ACD9;
+    /* charcoal, ember, forge gold — sampled from the Ironkin graphics */
+    --abyss:#0A0605;
+    --deep:#120C09;
+    --hull:#1B1310;
+    --hull-2:#261A14;
+    --line:#3B2519;
+    --line-2:#6B3D22;
+    --gold:#E5A93B;
+    --gold-dim:#8A5C23;
+    --bone:#E8E2D8;
+    --mute:#8C7A6D;
+    --hit:#FF6A1E;      /* the strike */
+    --lava:#C4331A;
+    --splash:#7A9DAE;   /* the quench */
 
+    --serif:"Cinzel", "Trajan Pro", Georgia, serif;
     --disp:"Barlow Condensed", system-ui, sans-serif;
     --body:"Barlow", system-ui, sans-serif;
     --data:"Silkscreen", ui-monospace, monospace;
@@ -34,7 +37,8 @@
   html,body{margin:0;height:100%}
   body{
     background:
-      radial-gradient(1200px 700px at 70% -10%, #14293A 0%, transparent 60%),
+      radial-gradient(1100px 620px at 78% -12%, #3A1509 0%, transparent 62%),
+      radial-gradient(900px 500px at 8% 108%, #2A0D06 0%, transparent 60%),
       var(--abyss);
     color:var(--bone);
     font-family:var(--body);
@@ -54,15 +58,27 @@
     background:linear-gradient(180deg, rgba(21,36,48,.9), rgba(8,13,18,.6));
     flex:none;z-index:30;
   }
-  .brand{display:flex;flex-direction:column;line-height:1}
+  .brand{display:flex;align-items:center;gap:13px;line-height:1}
+  .brand-mark{
+    width:34px;height:34px;flex:none;
+    filter:drop-shadow(0 0 7px rgba(255,106,30,.35));
+  }
+  .brand-text{display:flex;flex-direction:column;line-height:1}
   .brand-title{
-    font-family:var(--disp);font-weight:700;font-size:24px;
-    letter-spacing:.12em;text-transform:uppercase;color:var(--gold);
+    font-family:var(--serif);font-weight:700;font-size:23px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--gold);
   }
   .brand-sub{
-    font-family:var(--data);font-size:9px;letter-spacing:.18em;
-    text-transform:uppercase;color:var(--mute);margin-top:5px;
+    font-family:var(--data);font-size:8px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--mute);margin-top:7px;
   }
+  .brand-team{
+    font-family:var(--data);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--gold);border:1px solid var(--gold-dim);
+    padding:7px 10px;line-height:1;margin-left:16px;flex:none;
+    background:rgba(229,169,59,.06);
+  }
+  .brand-team:empty{display:none}
   .topbar-spacer{flex:1}
 
   .tally{display:flex;gap:2px;align-items:stretch}
@@ -79,7 +95,7 @@
 
   .who{display:flex;align-items:center;gap:10px}
   .who-av{width:32px;height:32px;border-radius:2px;border:1px solid var(--line-2)}
-  .who-name{font-family:var(--disp);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:14px}
+  .who-name{font-family:var(--serif);font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:13px}
   .who-role{font-family:var(--data);font-size:8px;color:var(--gold);letter-spacing:.12em}
 
   .btn{
@@ -91,11 +107,11 @@
   .btn:hover{background:var(--hull-2);border-color:var(--gold-dim)}
   .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   .btn-gold{background:var(--gold);border-color:var(--gold);color:#160E02}
-  .btn-gold:hover{background:#FFB851;border-color:#FFB851}
-  .btn-hit{border-color:#5E241F;color:#F0837A}
-  .btn-hit:hover{background:#2A1210;border-color:var(--hit)}
-  .btn-splash{border-color:#1F4459;color:#8FCBE8}
-  .btn-splash:hover{background:#10222D;border-color:var(--splash)}
+  .btn-gold:hover{background:#F5BD57;border-color:#F5BD57}
+  .btn-hit{border-color:#7A3312;color:#FF8B4D}
+  .btn-hit:hover{background:#2C1207;border-color:var(--hit)}
+  .btn-splash{border-color:#2E4650;color:#A6C4D2}
+  .btn-splash:hover{background:#111C21;border-color:var(--splash)}
   .btn-sm{padding:5px 10px;font-size:11px}
   .btn:disabled{opacity:.4;cursor:not-allowed}
 
@@ -115,7 +131,12 @@
 
   /* ---------------- board ---------------- */
 
-  .board-scroll{flex:1;min-width:0;overflow:auto;padding:22px 20px 40px}
+  .board-scroll{
+    flex:1;min-width:0;overflow:auto;padding:22px 20px 40px;
+    background:url(./sigil-ghost.png) no-repeat center 44%;
+    background-size:min(620px, 52%) auto;
+    background-attachment:local;
+  }
   .grid{
     display:grid;
     grid-template-columns:24px repeat(var(--cols,10), minmax(76px, 1fr));
@@ -209,9 +230,9 @@
     position:absolute;bottom:4px;left:0;right:0;text-align:center;
     font-family:var(--data);font-size:8px;letter-spacing:.16em;
   }
-  .tile[data-status="hit"]{border-color:#5E241F;background:#1A0E0C}
+  .tile[data-status="hit"]{border-color:#7A3312;background:#1E0D05}
   .tile[data-status="hit"] .stamp-label{color:var(--hit)}
-  .tile[data-status="splash"]{border-color:#1F4459;background:#0B1A22}
+  .tile[data-status="splash"]{border-color:#2E4650;background:#0C1418}
   .tile[data-status="splash"] .stamp-label{color:var(--splash)}
   .tile[data-status="hit"] .tile-name,
   .tile[data-status="splash"] .tile-name{display:none}
@@ -240,7 +261,7 @@
   .p-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}
   .p-art{width:64px;height:64px;flex:none;border:1px solid var(--line);background-size:contain;background-repeat:no-repeat;background-position:center}
   .p-coord{font-family:var(--data);font-size:9px;color:var(--gold);letter-spacing:.14em}
-  .p-name{font-family:var(--disp);font-weight:700;font-size:21px;line-height:1.1;text-transform:uppercase;letter-spacing:.03em;margin-top:5px}
+  .p-name{font-family:var(--serif);font-weight:700;font-size:19px;line-height:1.16;text-transform:uppercase;letter-spacing:.02em;margin-top:6px}
   .p-qty{font-family:var(--data);font-size:9px;color:var(--mute);margin-top:6px;letter-spacing:.1em}
 
   .p-sec{margin:22px 0 0}
@@ -306,8 +327,8 @@
   .r-av{width:46px;height:46px;border-radius:2px;border:1px solid var(--line-2);flex:none;object-fit:cover}
   .r-id{flex:1;min-width:0}
   .r-name{
-    font-family:var(--disp);font-weight:600;font-size:18px;line-height:1.05;
-    text-transform:uppercase;letter-spacing:.04em;
+    font-family:var(--serif);font-weight:600;font-size:16px;line-height:1.15;
+    text-transform:uppercase;letter-spacing:.03em;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
   .r-sub{font-family:var(--data);font-size:8px;letter-spacing:.12em;color:var(--mute);margin-top:5px}
@@ -325,8 +346,8 @@
     max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
   .r-tag:hover{border-color:var(--gold-dim)}
-  .r-tag[data-status="hit"]{border-color:#5E241F;color:var(--hit)}
-  .r-tag[data-status="splash"]{border-color:#1F4459;color:var(--splash)}
+  .r-tag[data-status="hit"]{border-color:#7A3312;color:var(--hit)}
+  .r-tag[data-status="splash"]{border-color:#2E4650;color:var(--splash)}
   .r-idle{font-family:var(--data);font-size:9px;color:var(--mute);letter-spacing:.1em}
 
   /* ---------------- admin ---------------- */
@@ -337,13 +358,13 @@
     display:flex;flex-direction:column;gap:26px;align-items:center;
   }
   .a-card{border:1px solid var(--line);background:var(--deep);padding:18px;width:100%;max-width:760px}
-  .a-h{font-family:var(--disp);font-weight:700;font-size:17px;text-transform:uppercase;letter-spacing:.08em;color:var(--gold)}
+  .a-h{font-family:var(--serif);font-weight:700;font-size:16px;text-transform:uppercase;letter-spacing:.07em;color:var(--gold)}
   .a-p{color:var(--mute);font-size:13px;line-height:1.6;margin:8px 0 14px}
   .a-fields{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
   .a-field{display:flex;flex-direction:column;gap:5px}
   .a-lab{font-family:var(--data);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
   .a-in{background:var(--hull);border:1px solid var(--line);color:var(--bone);padding:8px;width:88px;font-size:13px}
-  .a-danger{border-color:#5E241F}
+  .a-danger{border-color:#7A3312}
 
   .prog{
     height:3px;background:var(--hull);margin-top:14px;display:none;
@@ -356,17 +377,27 @@
     min-height:100vh;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:26px;padding:30px;text-align:center;
   }
+  .gate-mark{
+    width:clamp(88px,13vw,132px);height:auto;
+    filter:drop-shadow(0 0 34px rgba(255,106,30,.42));
+  }
   .gate-title{
-    font-family:var(--disp);font-weight:700;font-size:clamp(38px,8vw,76px);
-    letter-spacing:.14em;text-transform:uppercase;color:var(--gold);line-height:.94;
+    font-family:var(--serif);font-weight:700;font-size:clamp(32px,6.4vw,62px);
+    letter-spacing:.1em;text-transform:uppercase;color:var(--gold);line-height:1.02;
   }
   .gate-sub{font-family:var(--data);font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--mute)}
+  .gate-team{
+    font-family:var(--data);font-size:9px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--gold);border:1px solid var(--gold-dim);padding:8px 14px;
+    display:inline-block;margin-top:20px;background:rgba(229,169,59,.06);
+  }
+  .gate-team:empty{display:none}
   .gate-grid{
-    display:grid;grid-template-columns:repeat(6,26px);gap:4px;opacity:.5;
+    display:grid;grid-template-columns:repeat(6,22px);gap:4px;opacity:.45;
   }
   .gate-cell{aspect-ratio:1;border:1px solid var(--line)}
-  .gate-cell[data-x="1"]{border-color:#5E241F;background:#1A0E0C}
-  .gate-cell[data-x="2"]{border-color:#1F4459;background:#0B1A22}
+  .gate-cell[data-x="1"]{border-color:#7A3312;background:#1E0D05}
+  .gate-cell[data-x="2"]{border-color:#2E4650;background:#0C1418}
 
   .toast{
     position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
@@ -376,7 +407,7 @@
     opacity:0;pointer-events:none;transition:opacity .2s;
   }
   .toast[data-on="1"]{opacity:1}
-  .toast[data-kind="bad"]{border-color:var(--hit);color:#F0837A}
+  .toast[data-kind="bad"]{border-color:var(--lava);color:#FF8B4D}
 
   .hidden{display:none !important}
 
@@ -405,15 +436,17 @@
 
 <!-- ============ sign-in gate ============ -->
 <div class="gate" id="gate">
+  <img class="gate-mark" src="./sigil-ember.png" alt="" />
+  <div>
+    <div class="gate-title" id="gateTitle">Battleship<br>Bingo</div>
+    <div class="gate-sub" style="margin-top:18px" id="gateSub">Enemy waters</div>
+    <div class="gate-team" id="gateTeam"></div>
+  </div>
   <div class="gate-grid" aria-hidden="true">
     <div class="gate-cell"></div><div class="gate-cell" data-x="2"></div><div class="gate-cell"></div>
     <div class="gate-cell" data-x="1"></div><div class="gate-cell"></div><div class="gate-cell"></div>
     <div class="gate-cell"></div><div class="gate-cell"></div><div class="gate-cell" data-x="1"></div>
     <div class="gate-cell" data-x="2"></div><div class="gate-cell"></div><div class="gate-cell"></div>
-  </div>
-  <div>
-    <div class="gate-title" id="gateTitle">Battleship<br>Bingo</div>
-    <div class="gate-sub" style="margin-top:16px" id="gateSub">Enemy waters</div>
   </div>
   <button class="btn btn-gold" id="loginBtn">Sign in with Discord</button>
   <div class="gate-sub" id="gateNote" style="max-width:380px;line-height:2.2"></div>
@@ -424,9 +457,13 @@
 
   <header class="topbar">
     <div class="brand">
-      <div class="brand-title" id="appTitle">Battleship Bingo</div>
-      <div class="brand-sub" id="appSub">Enemy waters</div>
+      <img class="brand-mark" src="./sigil-bone.png" alt="" />
+      <div class="brand-text">
+        <div class="brand-title" id="appTitle">Battleship Bingo</div>
+        <div class="brand-sub" id="appSub">Enemy waters</div>
+      </div>
     </div>
+    <div class="brand-team" id="appTeam"></div>
 
     <div class="topbar-spacer"></div>
 
@@ -699,6 +736,7 @@ async function start(user) {
 
   $("#appTitle").textContent = CFG.title || "Battleship Bingo";
   $("#appSub").textContent = CFG.subtitle || "";
+  $("#appTeam").textContent = CFG.team || "";
   document.title = CFG.title || "Battleship Bingo";
   $("#meAv").src = S.me.avatar_url || "";
   $("#meName").textContent = nameOf(S.me);
@@ -714,8 +752,14 @@ async function start(user) {
   subscribe();
 }
 
-$("#gateTitle").innerHTML = (CFG.title || "Battleship Bingo").replace(" ", "<br>");
+// stack the wordmark one word per line on the sign-in screen
+$("#gateTitle").replaceChildren(
+  ...(CFG.title || "Battleship Bingo").split(" ").flatMap((word, i) =>
+    i ? [document.createElement("br"), document.createTextNode(word)]
+      : [document.createTextNode(word)])
+);
 $("#gateSub").textContent = CFG.subtitle || "";
+$("#gateTeam").textContent = CFG.team || "";
 
 function denied(row) {
   started = false;
@@ -793,8 +837,10 @@ function render() {
   renderPanel();
 }
 
-const BURST = `<svg viewBox="0 0 100 100" fill="none"><path d="M50 4 L60 32 L88 22 L70 46 L96 60 L66 62 L74 92 L50 72 L26 92 L34 62 L4 60 L30 46 L12 22 L40 32 Z" fill="#E0453A" fill-opacity=".22" stroke="#E0453A" stroke-width="3" stroke-linejoin="round"/><circle cx="50" cy="52" r="11" fill="#E0453A"/></svg>`;
-const RINGS = `<svg viewBox="0 0 100 100" fill="none" stroke="#57ACD9"><circle cx="50" cy="52" r="9"  stroke-width="4" stroke-opacity=".95"/><circle cx="50" cy="52" r="21" stroke-width="3" stroke-opacity=".6"/><circle cx="50" cy="52" r="33" stroke-width="2.5" stroke-opacity=".35"/><circle cx="50" cy="52" r="44" stroke-width="2" stroke-opacity=".18"/></svg>`;
+// the strike: sparks off the anvil, hot core
+const BURST = `<svg viewBox="0 0 100 100" fill="none"><path d="M50 4 L60 32 L88 22 L70 46 L96 60 L66 62 L74 92 L50 72 L26 92 L34 62 L4 60 L30 46 L12 22 L40 32 Z" fill="#FF6A1E" fill-opacity=".20" stroke="#FF6A1E" stroke-width="3" stroke-linejoin="round"/><circle cx="50" cy="52" r="11" fill="#C4331A"/><circle cx="50" cy="52" r="5.5" fill="#FFC96B"/></svg>`;
+// the quench: cold steel hitting water
+const RINGS = `<svg viewBox="0 0 100 100" fill="none" stroke="#7A9DAE"><circle cx="50" cy="52" r="9"  stroke-width="4" stroke-opacity=".95"/><circle cx="50" cy="52" r="21" stroke-width="3" stroke-opacity=".6"/><circle cx="50" cy="52" r="33" stroke-width="2.5" stroke-opacity=".35"/><circle cx="50" cy="52" r="44" stroke-width="2" stroke-opacity=".18"/></svg>`;
 
 function renderBoard() {
   const cols = S.board.cols || 10;
@@ -1449,8 +1495,17 @@ $("#allowAdd").addEventListener("click", async () => {
 
 // ---------------- exports ----------------
 
-const C = { abyss:"#080D12", hull:"#152430", line:"#26404F", line2:"#3B6076",
-            gold:"#F2A33C", bone:"#E7E0D2", mute:"#7B8D99", hit:"#E0453A", splash:"#57ACD9" };
+const C = { abyss:"#0A0605", hull:"#1B1310", line:"#3B2519", line2:"#6B3D22",
+            gold:"#E5A93B", bone:"#E8E2D8", mute:"#8C7A6D",
+            hit:"#FF6A1E", lava:"#C4331A", splash:"#7A9DAE" };
+
+// the sigil, for the exported PNGs
+let MARK = { bone: null, ember: null };
+async function marks() {
+  if (!MARK.bone) MARK.bone = await loadImg("./sigil-bone.png").catch(() => null);
+  if (!MARK.ember) MARK.ember = await loadImg("./sigil-ember.png").catch(() => null);
+  return MARK;
+}
 
 const loadImg = (src) => new Promise((res, rej) => {
   const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src;
@@ -1495,10 +1550,12 @@ function burst(ctx, cx, cy, s) {
     i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
   });
   ctx.closePath();
-  ctx.fillStyle = "rgba(224,69,58,.22)"; ctx.fill();
+  ctx.fillStyle = "rgba(255,106,30,.20)"; ctx.fill();
   ctx.lineWidth = Math.max(2, s * .03); ctx.strokeStyle = C.hit; ctx.lineJoin = "round"; ctx.stroke();
   ctx.beginPath(); ctx.arc(cx, cy + s * .02, s * .11, 0, Math.PI * 2);
-  ctx.fillStyle = C.hit; ctx.fill();
+  ctx.fillStyle = C.lava; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy + s * .02, s * .055, 0, Math.PI * 2);
+  ctx.fillStyle = "#FFC96B"; ctx.fill();
 }
 
 function rings(ctx, cx, cy, s) {
@@ -1549,17 +1606,38 @@ async function finish(cv, name) {
 
 const stamp = () => new Date().toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-function header(ctx, w, sub) {
-  ctx.fillStyle = C.gold;
-  ctx.font = '700 30px "Barlow Condensed", sans-serif';
+function header(ctx, w, sub, mk) {
+  let tx = 26;
+  if (mk?.bone) { ctx.drawImage(mk.bone, 24, 20, 44, 44); tx = 82; }
+
+  const title = (CFG.title || "Battleship Bingo").toUpperCase();
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-  ctx.fillText((CFG.title || "Battleship Bingo").toUpperCase(), 26, 46);
+  let size = 26;
+  ctx.font = `700 ${size}px Cinzel, Georgia, serif`;
+  while (size > 15 && tx + ctx.measureText(title).width > w - 300) {
+    size -= 1; ctx.font = `700 ${size}px Cinzel, Georgia, serif`;
+  }
+  ctx.fillStyle = C.gold;
+  ctx.fillText(title, tx, 46);
+
+  if (CFG.team) {
+    const tw = ctx.measureText(title).width;
+    ctx.font = '400 11px "Silkscreen", monospace';
+    const teamText = CFG.team.toUpperCase();
+    const bw = ctx.measureText(teamText).width + 20;
+    ctx.strokeStyle = "#8A5C23"; ctx.lineWidth = 1;
+    ctx.fillStyle = "rgba(229,169,59,.06)";
+    ctx.fillRect(tx + tw + 16, 26, bw, 22);
+    ctx.strokeRect(tx + tw + 16.5, 26.5, bw - 1, 21);
+    ctx.fillStyle = C.gold;
+    ctx.fillText(teamText, tx + tw + 26, 41);
+  }
 
   const hits = S.tiles.filter((t) => t.status === "hit").length;
   const spl  = S.tiles.filter((t) => t.status === "splash").length;
-  ctx.font = '400 13px "Silkscreen", monospace';
+  ctx.font = '400 12px "Silkscreen", monospace';
   ctx.fillStyle = C.mute;
-  ctx.fillText(sub, 26, 70);
+  ctx.fillText(sub.toUpperCase(), tx, 70);
 
   ctx.textAlign = "right";
   ctx.fillStyle = C.hit;    ctx.fillText(`${hits} HIT`, w - 210, 46);
@@ -1584,8 +1662,17 @@ $("#expBoard").addEventListener("click", async () => {
     cv.width = w; cv.height = h;
     const ctx = cv.getContext("2d");
 
+    const mk = await marks();
     ctx.fillStyle = C.abyss; ctx.fillRect(0, 0, w, h);
-    header(ctx, w, (CFG.subtitle || "").toUpperCase());
+
+    // sigil embossed behind the grid, same as on screen
+    if (mk.ember) {
+      const ms = Math.min(w, h) * 0.52;
+      ctx.save(); ctx.globalAlpha = 0.055;
+      ctx.drawImage(mk.ember, (w - ms) / 2, PAD + HEAD + (h - HEAD - ms) / 2, ms, ms);
+      ctx.restore();
+    }
+    header(ctx, w, CFG.subtitle || "", mk);
 
     const ox = PAD + GUT, oy = PAD + HEAD + GUT;
 
@@ -1623,10 +1710,10 @@ $("#expBoard").addEventListener("click", async () => {
         wrap(ctx, t.name, x + s / 2, y + artH + 3, s - 6, 13, 3);
       }
 
-      if (t.status === "hit")    { ctx.fillStyle = "rgba(26,14,12,.5)"; ctx.fillRect(x, y, s, s); burst(ctx, x + s/2, y + s/2, s * .74); }
-      if (t.status === "splash") { ctx.fillStyle = "rgba(11,26,34,.5)"; ctx.fillRect(x, y, s, s); rings(ctx, x + s/2, y + s/2, s * .74); }
+      if (t.status === "hit")    { ctx.fillStyle = "rgba(30,13,5,.55)"; ctx.fillRect(x, y, s, s); burst(ctx, x + s/2, y + s/2, s * .74); }
+      if (t.status === "splash") { ctx.fillStyle = "rgba(12,20,24,.55)"; ctx.fillRect(x, y, s, s); rings(ctx, x + s/2, y + s/2, s * .74); }
 
-      ctx.strokeStyle = t.status === "hit" ? "#5E241F" : t.status === "splash" ? "#1F4459" : C.line;
+      ctx.strokeStyle = t.status === "hit" ? "#7A3312" : t.status === "splash" ? "#2E4650" : C.line;
       ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, s - 1, s - 1);
 
       ctx.font = '400 9px "Silkscreen", monospace';
@@ -1714,8 +1801,9 @@ $("#expCrew").addEventListener("click", async () => {
     cv.width = W; cv.height = PAD * 2 + HEAD + Math.max(rows.length, 1) * ROW;
     const ctx = cv.getContext("2d");
 
+    const mk = await marks();
     ctx.fillStyle = C.abyss; ctx.fillRect(0, 0, cv.width, cv.height);
-    header(ctx, W, "CREW ASSIGNMENTS");
+    header(ctx, W, "CREW ASSIGNMENTS", mk);
 
     const avs = new Map();
     await Promise.all(rows.map(async ({ m }) => avs.set(m.id, await avatar(m.avatar_url))));
@@ -1728,7 +1816,7 @@ $("#expCrew").addEventListener("click", async () => {
       disc(ctx, avs.get(m.id), PAD + 22, y + ROW / 2, 22, nameOf(m)[0].toUpperCase());
 
       ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-      ctx.font = '600 19px "Barlow Condensed", sans-serif';
+      ctx.font = '600 16px Cinzel, Georgia, serif';
       ctx.fillStyle = C.bone;
       ctx.fillText(nameOf(m).toUpperCase() + (m.is_admin ? " ★" : ""), PAD + 58, y + 30);
 
@@ -1741,7 +1829,7 @@ $("#expCrew").addEventListener("click", async () => {
           const label = `${coordOf(t.pos, cols)} ${(t.name || "unnamed").slice(0, 22)}`;
           const w = ctx.measureText(label).width + 14;
           if (x + w > W - PAD) { ctx.fillStyle = C.mute; ctx.fillText("…", x, y + 52); break; }
-          ctx.strokeStyle = t.status === "hit" ? "#5E241F" : t.status === "splash" ? "#1F4459" : C.line;
+          ctx.strokeStyle = t.status === "hit" ? "#7A3312" : t.status === "splash" ? "#2E4650" : C.line;
           ctx.fillStyle = C.hull;
           ctx.fillRect(x, y + 40, w, 18); ctx.strokeRect(x + .5, y + 40.5, w - 1, 17);
           ctx.fillStyle = t.status === "hit" ? C.hit : t.status === "splash" ? C.splash : C.bone;
