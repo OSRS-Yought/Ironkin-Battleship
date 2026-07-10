@@ -1842,6 +1842,13 @@ $("#copyCrew").addEventListener("click", async () => {
   }
 });
 
+function fitText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+  return t + "…";
+}
+
 $("#expCrew").addEventListener("click", async () => {
   $("#expCrew").disabled = true;
   try {
