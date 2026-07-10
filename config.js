@@ -1,19 +1,19 @@
 // ---------------------------------------------------------------------
-//  Fill these in from your Supabase project:
-//    Project Settings -> API -> Project URL, and the "anon public" key.
+//  Supabase connection + site identity.
 //
-//  The anon key is meant to be public. It is safe in a GitHub repo.
-//  Row-level security in schema.sql is what actually protects the data.
+//  The publishable key is meant to be public. It is safe in a GitHub repo.
+//  Row-level security (schema.sql / security.sql) is what protects the data.
+//  Never put the service_role / secret key here.
 // ---------------------------------------------------------------------
 
 window.BB_CONFIG = {
-  supabaseUrl: "https://YOUR-PROJECT-REF.supabase.co",
-  supabaseAnonKey: "YOUR-ANON-PUBLIC-KEY",
+  supabaseUrl: "https://pzxeauhieamxnoanlkjm.supabase.co",
+  supabaseAnonKey: "sb_publishable_BeJLYnRf6MIlu2b8_CDcPA_2SdbOEU6",
 
   // Header, sign-in screen, and both exported PNGs.
   title: "Ironkin Battleship Bingo",
   subtitle: "Forged alone, bound as kin",
 
-  // Your team. Shown as a tag beside the wordmark and stamped on exports.
+  // Your team. Shown beside the wordmark and stamped on exports.
   team: "Apey's Apes",
 };
