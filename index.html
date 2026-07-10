@@ -761,8 +761,19 @@ $("#gateTitle").replaceChildren(
 $("#gateSub").textContent = CFG.subtitle || "";
 $("#gateTeam").textContent = CFG.team || "";
 
-function denied(row) {
+const RICK = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+
+async function denied(row) {
   started = false;
+
+  // Not on the crew roster. If armed, send them somewhere else entirely.
+  if (CFG.rickroll) {
+    // drop the session first, or they hold a half-authenticated state on return
+    try { await sb.auth.signOut(); } catch { /* going anyway */ }
+    location.replace(CFG.rickroll === true ? RICK : CFG.rickroll);
+    return;
+  }
+
   $("#gate").classList.remove("hidden");
   $("#app").classList.add("hidden");
   $("#gateTitle").innerHTML = "Not<br>aboard";

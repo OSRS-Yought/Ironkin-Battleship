@@ -16,4 +16,11 @@ window.BB_CONFIG = {
 
   // Your team. Shown beside the wordmark and stamped on exports.
   team: "Apey's Apes",
+
+  // What happens when someone signs in who is NOT on the crew roster.
+  //   false          -> polite "Not aboard" screen (recommended while you
+  //                     are still adding people to the roster)
+  //   true           -> redirect them to the video
+  //   "https://..."  -> redirect them wherever you like
+  rickroll: true,
 };
