@@ -308,6 +308,28 @@
   /* ---------------- roster ---------------- */
 
   .roster{flex:1;overflow:auto;padding:24px 20px 60px}
+
+  .log{flex:1;overflow:auto;padding:24px 20px 60px}
+  .log-wrap{max-width:960px;margin:0 auto}
+  .log-row{
+    display:grid;grid-template-columns:150px 118px 1fr;gap:14px;align-items:baseline;
+    padding:10px 4px;border-bottom:1px solid var(--line);
+  }
+  .log-when{font-family:var(--data);font-size:9px;color:var(--mute);letter-spacing:.06em}
+  .log-act{
+    font-family:var(--data);font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+    border:1px solid var(--line);padding:4px 6px;text-align:center;color:var(--mute);
+    white-space:nowrap;
+  }
+  .log-act[data-k="hit"]{border-color:#7A3312;color:var(--hit)}
+  .log-act[data-k="splash"]{border-color:#2E4650;color:var(--splash)}
+  .log-act[data-k="board"]{border-color:var(--gold-dim);color:var(--gold)}
+  .log-act[data-k="member"]{border-color:var(--line-2);color:var(--bone)}
+  .log-what{font-size:14px;line-height:1.45}
+  .log-who{color:var(--gold);font-weight:600}
+  .log-tgt{color:var(--bone)}
+  .log-dim{color:var(--mute)}
+  .log-empty{color:var(--mute);font-family:var(--data);font-size:10px;letter-spacing:.12em;text-align:center;padding:60px 0}
   .r-grid{
     display:grid;
     grid-template-columns:repeat(auto-fill, minmax(268px, 1fr));
@@ -486,6 +508,7 @@
   <nav class="controls">
     <button class="chip" data-view="board" aria-pressed="true">Board</button>
     <button class="chip" data-view="roster" aria-pressed="false">Crew</button>
+    <button class="chip hidden" data-view="log" aria-pressed="false" id="logChip">Log</button>
     <button class="chip hidden" data-view="admin" aria-pressed="false" id="adminChip">Setup</button>
 
     <div style="width:18px"></div>
@@ -508,6 +531,8 @@
     </main>
 
     <main class="roster hidden" id="rosterView"></main>
+
+    <main class="log hidden" id="logView"><div class="log-wrap" id="logWrap"></div></main>
 
     <main class="admin hidden" id="adminView">
       <div class="a-card">
@@ -644,6 +669,7 @@ const S = {
   view: "board",
   filter: "all",
   fresh: new Set(),       // tile ids that just changed status (for the burst animation)
+  log: [],                // audit rows, admins only
 };
 
 const COL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -746,6 +772,7 @@ async function start(user) {
   if (S.me.is_admin) {
     $("#meRole").textContent = "Admiral";
     $("#adminChip").classList.remove("hidden");
+    $("#logChip").classList.remove("hidden");
   }
 
   await loadAll();
@@ -823,6 +850,9 @@ function subscribe() {
     .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, reload)
     .on("postgres_changes", { event: "*", schema: "public", table: "members" }, reload)
     .on("postgres_changes", { event: "*", schema: "public", table: "board" }, reload)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "audit" }, () => {
+      if (S.view === "log") loadLog();
+    })
     .subscribe((status) => {
       $("#liveDot").textContent = status === "SUBSCRIBED" ? "● Live" : "○ Reconnecting";
       $("#liveDot").style.color = status === "SUBSCRIBED" ? "#6BBF3F" : "var(--mute)";
@@ -1128,6 +1158,7 @@ function setView(name) {
   $$("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === name)));
   $("#boardView").classList.toggle("hidden", name !== "board");
   $("#rosterView").classList.toggle("hidden", name !== "roster");
+  $("#logView").classList.toggle("hidden", name !== "log");
   $("#adminView").classList.toggle("hidden", name !== "admin");
   $("#panel").classList.toggle("hidden", name !== "board");
 
@@ -1139,6 +1170,7 @@ function setView(name) {
 $$("[data-view]").forEach((b) => b.addEventListener("click", () => {
   setView(b.dataset.view);
   if (b.dataset.view === "admin") { renderAllow(); renderRsn(); }
+  if (b.dataset.view === "log") loadLog();
 }));
 
 $$("[data-filter]").forEach((b) => b.addEventListener("click", () => {
@@ -1386,6 +1418,100 @@ async function setTileIcon(tile) {
     toast("Icon set");
     await loadAll();
   } catch (e) { fail("Lookup failed")(e); }
+}
+
+// ---------------- audit log (admins only) ----------------
+
+const LOG_KIND = (a) =>
+  a === "tile.hit" ? "hit" :
+  a === "tile.splash" ? "splash" :
+  a.startsWith("board.") ? "board" :
+  a.startsWith("member.") || a.startsWith("roster.") ? "member" : "";
+
+const LOG_LABEL = {
+  "tile.hit": "hit", "tile.splash": "splash", "tile.reopen": "reopened",
+  "tile.note": "note", "assign.add": "claimed", "assign.remove": "released",
+  "member.add": "added", "member.remove": "removed", "member.signin": "signed in",
+  "member.rename": "renamed", "roster.add": "roster +", "roster.remove": "roster −",
+  "board.build": "built", "board.clear": "cleared", "board.shuffle": "shuffled",
+};
+
+async function loadLog() {
+  if (!S.me?.is_admin) return;
+  const { data, error } = await sb.from("audit").select("*").order("at", { ascending: false }).limit(250);
+  if (error) return fail("Could not load the log")(error);
+  S.log = data || [];
+  renderLog();
+}
+
+function renderLog() {
+  const box = $("#logWrap");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!S.log.length) {
+    box.appendChild(el("div", "log-empty", "Nothing logged yet"));
+    return;
+  }
+
+  const cols = S.board.cols || 10;
+  for (const r of S.log) {
+    const row = el("div", "log-row");
+
+    const when = new Date(r.at);
+    const w = el("div", "log-when",
+      when.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" }));
+    row.appendChild(w);
+
+    const act = el("div", "log-act", LOG_LABEL[r.action] || r.action);
+    act.dataset.k = LOG_KIND(r.action);
+    act.title = r.action;
+    row.appendChild(act);
+
+    const d = r.detail || {};
+    const coord = d.pos != null ? coordOf(d.pos, cols) : null;
+    const what = el("div", "log-what");
+
+    const who = el("span", "log-who", r.actor_name || "someone");
+    what.appendChild(who);
+    what.appendChild(document.createTextNode(" "));
+
+    const phrase = (() => {
+      switch (r.action) {
+        case "tile.hit":     return [`called a hit on `, `${coord} ${r.target}`];
+        case "tile.splash":  return [`called a splash on `, `${coord} ${r.target}`];
+        case "tile.reopen":  return [`reopened `, `${coord} ${r.target}`, ` (was ${d.from})`];
+        case "tile.note":    return [`edited notes on `, `${coord} ${r.target}`];
+        case "assign.add":   return [`put `, r.target, ` on ${coord} ${d.tile}`];
+        case "assign.remove":return [`took `, r.target, ` off ${coord} ${d.tile}`];
+        case "member.add":   return [d.placeholder ? `created a placeholder for ` : `registered `, r.target];
+        case "member.remove":return [`deleted `, r.target];
+        case "member.signin":return [``, ``, `signed in for the first time`];
+        case "member.rename":return [`renamed to `, d.to || "(cleared)", d.from ? ` (was ${d.from})` : ""];
+        case "roster.add":   return [`added `, r.target, ` to the crew roster`];
+        case "roster.remove":return [`removed `, r.target, ` from the crew roster`];
+        case "board.build":  return [`rebuilt the board — `, r.target];
+        case "board.clear":  return [`cleared the board — `, r.target];
+        case "board.shuffle":return [`shuffled the board`];
+        default:             return [r.action + " ", r.target || ""];
+      }
+    })();
+
+    const [lead, target, trail] = phrase;
+    if (lead) what.appendChild(document.createTextNode(lead));
+    if (target) what.appendChild(el("span", "log-tgt", target));
+    if (trail) what.appendChild(el("span", "log-dim", trail));
+    row.appendChild(what);
+
+    if (d.tile_id) {
+      row.style.cursor = "pointer";
+      row.addEventListener("click", () => {
+        const t = S.tiles.find((x) => x.id === d.tile_id);
+        if (!t) return;
+        S.selected = t.id; setView("board"); $("#panel").classList.remove("panel-idle"); render();
+      });
+    }
+    box.appendChild(row);
+  }
 }
 
 // ---------------- names ----------------
