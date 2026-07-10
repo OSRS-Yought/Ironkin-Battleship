@@ -425,9 +425,11 @@
     <button class="chip" data-filter="open" aria-pressed="false">Unfired</button>
     <button class="chip" data-filter="hit" aria-pressed="false">Hits</button>
     <button class="chip" data-filter="splash" aria-pressed="false">Splashes</button>
-    <button class="chip" data-filter="mine" aria-pressed="false">Mine</button>
 
     <div class="controls-spacer"></div>
+    <button class="chip" id="expBoard">⬓ Export board</button>
+    <button class="chip hidden" id="expCrew">⬓ Export crew</button>
+    <button class="chip hidden" id="copyCrew">Copy as text</button>
     <span class="brand-sub" id="liveDot">● Live</span>
   </nav>
 
@@ -472,6 +474,19 @@
           with the task, not the cell. Run this after both teams have placed ships.
         </p>
         <button class="btn" id="shuffleBtn">Shuffle the board</button>
+      </div>
+
+      <div class="a-card">
+        <div class="a-h">Crew roster</div>
+        <p class="a-p">
+          Only these Discord IDs can load the board or change anything. Enforced in the
+          database, so it holds even if someone skips the site and hits the API directly.
+          In Discord: <em>Settings → Advanced → Developer Mode</em>, then right-click a
+          member → <em>Copy User ID</em>. One ID per line.
+        </p>
+        <textarea class="note" id="allowIn" placeholder="123456789012345678&#10;987654321098765432" style="min-height:66px"></textarea>
+        <div style="margin-top:8px"><button class="btn" id="allowAdd">Add to roster</button></div>
+        <div class="crew" id="allowList" style="margin-top:16px"></div>
       </div>
 
       <div class="a-card a-danger">
@@ -573,7 +588,11 @@ async function start(user) {
   };
 
   const { error } = await sb.from("members").upsert(row, { onConflict: "id" });
-  if (error) return fail("Could not register you")(error);
+  if (error) {
+    // 42501 = row-level security refused the insert, i.e. not on the allowlist
+    if (error.code === "42501" || /row-level security/i.test(error.message || "")) return denied(row);
+    return fail("Could not register you")(error);
+  }
 
   const { data: mine } = await sb.from("members").select("*").eq("id", user.id).single();
   S.me = mine || row;
@@ -597,6 +616,21 @@ async function start(user) {
 
 $("#gateTitle").innerHTML = (CFG.title || "Battleship Bingo").replace(" ", "<br>");
 $("#gateSub").textContent = CFG.subtitle || "";
+
+function denied(row) {
+  started = false;
+  $("#gate").classList.remove("hidden");
+  $("#app").classList.add("hidden");
+  $("#gateTitle").innerHTML = "Not<br>aboard";
+  $("#gateSub").textContent = "Crew roster only";
+  $("#loginBtn").textContent = "Sign out";
+  $("#loginBtn").disabled = false;
+  $("#loginBtn").replaceWith($("#loginBtn").cloneNode(true)); // drop the sign-in listener
+  $("#loginBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
+  $("#gateNote").textContent =
+    `Signed in as ${row.username}. That Discord account is not on the crew roster. ` +
+    `Ask an admin to add ${row.discord_id || "your Discord ID"}.`;
+}
 
 // ---------------- load ----------------
 
@@ -644,7 +678,6 @@ function subscribe() {
 
 function visible(tile) {
   if (S.filter === "all") return true;
-  if (S.filter === "mine") return (S.assigns.get(tile.id) || []).includes(S.me.id);
   return tile.status === S.filter;
 }
 
@@ -917,8 +950,16 @@ function setView(name) {
   $("#rosterView").classList.toggle("hidden", name !== "roster");
   $("#adminView").classList.toggle("hidden", name !== "admin");
   $("#panel").classList.toggle("hidden", name !== "board");
+
+  $$("[data-filter]").forEach((b) => b.classList.toggle("hidden", name !== "board"));
+  $("#expBoard").classList.toggle("hidden", name !== "board");
+  $("#expCrew").classList.toggle("hidden", name !== "roster");
+  $("#copyCrew").classList.toggle("hidden", name !== "roster");
 }
-$$("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+$$("[data-view]").forEach((b) => b.addEventListener("click", () => {
+  setView(b.dataset.view);
+  if (b.dataset.view === "admin") renderAllow();
+}));
 
 $$("[data-filter]").forEach((b) => b.addEventListener("click", () => {
   S.filter = b.dataset.filter;
@@ -1015,6 +1056,305 @@ $("#resetBtn").addEventListener("click", async () => {
   if (a.error || b.error) return fail("Reset failed")(a.error || b.error);
   toast("Board reset");
   await loadAll();
+});
+
+// ---------------- admin: crew roster ----------------
+
+async function renderAllow() {
+  if (!S.me?.is_admin) return;
+  const { data, error } = await sb.from("allowlist").select("*").order("added_at");
+  const box = $("#allowList");
+  if (!box) return;
+  box.innerHTML = "";
+  if (error) { box.appendChild(el("div", "crew-none", "Run security.sql first.")); return; }
+  if (!data.length) { box.appendChild(el("div", "crew-none", "Roster is empty.")); return; }
+  data.forEach((a) => {
+    const row = el("div", "crew-row");
+    row.appendChild(el("div", "crew-name", `${a.note || "unknown"} · ${a.discord_id}`));
+    const x = el("button", "crew-x", "✕");
+    x.title = "Remove from roster";
+    x.addEventListener("click", async () => {
+      if (!confirm(`Remove ${a.note || a.discord_id} from the crew roster?`)) return;
+      await sb.from("allowlist").delete().eq("discord_id", a.discord_id);
+      await sb.from("members").delete().eq("discord_id", a.discord_id);
+      toast("Removed");
+      renderAllow(); loadAll();
+    });
+    row.appendChild(x);
+    box.appendChild(row);
+  });
+}
+
+$("#allowAdd").addEventListener("click", async () => {
+  const ids = $("#allowIn").value.split(/\s+/).map((s) => s.trim()).filter((s) => /^\d{15,25}$/.test(s));
+  if (!ids.length) return toast("No valid Discord IDs found", "bad");
+  const { error } = await sb.from("allowlist").insert(ids.map((id) => ({ discord_id: id, note: "added via app" })));
+  if (error) return fail("Could not add")(error);
+  $("#allowIn").value = "";
+  toast(`${ids.length} added to the roster`);
+  renderAllow();
+});
+
+// ---------------- exports ----------------
+
+const C = { abyss:"#080D12", hull:"#152430", line:"#26404F", line2:"#3B6076",
+            gold:"#F2A33C", bone:"#E7E0D2", mute:"#7B8D99", hit:"#E0453A", splash:"#57ACD9" };
+
+const loadImg = (src) => new Promise((res, rej) => {
+  const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src;
+});
+
+// Discord's CDN sends Access-Control-Allow-Origin, so this keeps the canvas untainted.
+// If it ever stops, we fall back to an initial-letter disc rather than failing the export.
+const avCache = new Map();
+async function avatar(url) {
+  if (!url) return null;
+  if (avCache.has(url)) return avCache.get(url);
+  let img = null;
+  try {
+    const blob = await (await fetch(url, { mode: "cors" })).blob();
+    img = await createImageBitmap(blob);
+  } catch { img = null; }
+  avCache.set(url, img);
+  return img;
+}
+
+function disc(ctx, img, x, y, r, fallbackChar) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.closePath();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = C.abyss;
+  if (img) { ctx.clip(); ctx.drawImage(img, x - r, y - r, r * 2, r * 2); }
+  else {
+    ctx.fillStyle = C.line2; ctx.fill(); ctx.clip();
+    ctx.fillStyle = C.bone; ctx.font = `700 ${r}px Barlow, sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(fallbackChar || "?", x, y + 1);
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.lineWidth = 2.5; ctx.strokeStyle = C.abyss; ctx.stroke();
+}
+
+function burst(ctx, cx, cy, s) {
+  const pts = [[50,4],[60,32],[88,22],[70,46],[96,60],[66,62],[74,92],[50,72],[26,92],[34,62],[4,60],[30,46],[12,22],[40,32]];
+  ctx.beginPath();
+  pts.forEach(([px, py], i) => {
+    const x = cx + (px - 50) * s / 100, y = cy + (py - 50) * s / 100;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = "rgba(224,69,58,.22)"; ctx.fill();
+  ctx.lineWidth = Math.max(2, s * .03); ctx.strokeStyle = C.hit; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy + s * .02, s * .11, 0, Math.PI * 2);
+  ctx.fillStyle = C.hit; ctx.fill();
+}
+
+function rings(ctx, cx, cy, s) {
+  [[.09,4,.95],[.21,3,.6],[.33,2.5,.35],[.44,2,.18]].forEach(([r, w, o]) => {
+    ctx.beginPath(); ctx.arc(cx, cy + s * .02, s * r, 0, Math.PI * 2);
+    ctx.lineWidth = w * s / 100; ctx.strokeStyle = C.splash; ctx.globalAlpha = o; ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+}
+
+async function finish(cv, name) {
+  const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    toast("Copied — paste it into Discord");
+  } catch {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    toast("Downloaded — drag it into Discord");
+  }
+}
+
+const stamp = () => new Date().toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+function header(ctx, w, sub) {
+  ctx.fillStyle = C.gold;
+  ctx.font = '700 30px "Barlow Condensed", sans-serif';
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText((CFG.title || "Battleship Bingo").toUpperCase(), 26, 46);
+
+  const hits = S.tiles.filter((t) => t.status === "hit").length;
+  const spl  = S.tiles.filter((t) => t.status === "splash").length;
+  ctx.font = '400 13px "Silkscreen", monospace';
+  ctx.fillStyle = C.mute;
+  ctx.fillText(sub, 26, 70);
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = C.hit;    ctx.fillText(`${hits} HIT`, w - 210, 46);
+  ctx.fillStyle = C.splash; ctx.fillText(`${spl} SPLASH`, w - 110, 46);
+  ctx.fillStyle = C.gold;   ctx.fillText(`${S.tiles.length - hits - spl} OPEN`, w - 26, 46);
+  ctx.fillStyle = C.mute;   ctx.fillText(stamp(), w - 26, 70);
+  ctx.textAlign = "left";
+}
+
+$("#expBoard").addEventListener("click", async () => {
+  if (!S.tiles.length) return toast("No board to export", "bad");
+  $("#expBoard").disabled = true;
+  try {
+    await document.fonts.ready;
+    const cols = S.board.cols || 10;
+    const rows = Math.ceil(S.tiles.length / cols);
+    const CELL = 104, GUT = 28, PAD = 26, HEAD = 92;
+
+    const w = PAD * 2 + GUT + cols * CELL;
+    const h = PAD * 2 + HEAD + GUT + rows * CELL;
+    const cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext("2d");
+
+    ctx.fillStyle = C.abyss; ctx.fillRect(0, 0, w, h);
+    header(ctx, w, (CFG.subtitle || "").toUpperCase());
+
+    const ox = PAD + GUT, oy = PAD + HEAD + GUT;
+
+    ctx.font = '400 12px "Silkscreen", monospace';
+    ctx.fillStyle = C.line2; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (let c = 0; c < cols; c++) ctx.fillText(COL_LETTERS[c], ox + c * CELL + CELL / 2, oy - GUT / 2);
+    for (let r = 0; r < rows; r++) ctx.fillText(String(r + 1), PAD + GUT / 2, oy + r * CELL + CELL / 2);
+
+    const arts = await Promise.all(S.tiles.map((t) => (t.image ? loadImg(t.image).catch(() => null) : null)));
+    const avs = new Map();
+    await Promise.all([...S.members.values()].map(async (m) => avs.set(m.id, await avatar(m.avatar_url))));
+
+    for (let i = 0; i < S.tiles.length; i++) {
+      const t = S.tiles[i];
+      const x = ox + (t.pos % cols) * CELL, y = oy + Math.floor(t.pos / cols) * CELL;
+      const s = CELL - 4;
+
+      ctx.fillStyle = C.hull; ctx.fillRect(x, y, s, s);
+      const art = arts[i];
+      if (art) {
+        ctx.save();
+        if (t.status !== "open") ctx.filter = "saturate(.25) brightness(.42)";
+        ctx.drawImage(art, x, y, s, s);
+        ctx.restore();
+      }
+
+      if (t.status === "hit")    { ctx.fillStyle = "rgba(26,14,12,.5)"; ctx.fillRect(x, y, s, s); burst(ctx, x + s/2, y + s/2, s * .74); }
+      if (t.status === "splash") { ctx.fillStyle = "rgba(11,26,34,.5)"; ctx.fillRect(x, y, s, s); rings(ctx, x + s/2, y + s/2, s * .74); }
+
+      ctx.strokeStyle = t.status === "hit" ? "#5E241F" : t.status === "splash" ? "#1F4459" : C.line;
+      ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, s - 1, s - 1);
+
+      ctx.font = '400 9px "Silkscreen", monospace';
+      ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillStyle = "rgba(231,224,210,.4)";
+      ctx.fillText(coordOf(t.pos, cols), x + 5, y + 5);
+
+      if (t.qty > 1) {
+        ctx.textAlign = "right";
+        ctx.fillStyle = C.gold; ctx.fillRect(x + s - 26, y + 4, 22, 13);
+        ctx.fillStyle = "#160E02"; ctx.fillText("x" + t.qty, x + s - 6, y + 6);
+      }
+
+      if (t.status === "open") {
+        const ids = (S.assigns.get(t.id) || []).slice(0, 3);
+        ids.forEach((id, k) => {
+          const m = S.members.get(id);
+          disc(ctx, avs.get(id), x + 16 + k * 15, y + s - 16, 12, (m?.display_name || "?")[0].toUpperCase());
+        });
+        const extra = (S.assigns.get(t.id) || []).length - 3;
+        if (extra > 0) {
+          const px = x + 16 + 3 * 15;
+          ctx.beginPath(); ctx.arc(px, y + s - 16, 12, 0, Math.PI * 2);
+          ctx.fillStyle = C.gold; ctx.fill();
+          ctx.strokeStyle = C.abyss; ctx.lineWidth = 2.5; ctx.stroke();
+          ctx.fillStyle = "#160E02"; ctx.font = '400 9px "Silkscreen", monospace';
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("+" + extra, px, y + s - 15);
+        }
+      }
+    }
+    await finish(cv, "board.png");
+  } catch (e) { fail("Export failed")(e); }
+  finally { $("#expBoard").disabled = false; }
+});
+
+function crewRows() {
+  const cols = S.board.cols || 10;
+  const byMember = new Map();
+  for (const [tileId, ids] of S.assigns) for (const id of ids) {
+    if (!byMember.has(id)) byMember.set(id, []);
+    byMember.get(id).push(S.tiles.find((t) => t.id === tileId));
+  }
+  return [...S.members.values()]
+    .sort((a, b) => (byMember.get(b.id)?.length || 0) - (byMember.get(a.id)?.length || 0)
+                 || a.display_name.localeCompare(b.display_name))
+    .map((m) => ({
+      m,
+      tiles: (byMember.get(m.id) || []).filter(Boolean).sort((a, b) => a.pos - b.pos),
+      cols,
+    }));
+}
+
+$("#copyCrew").addEventListener("click", async () => {
+  const lines = crewRows().map(({ m, tiles, cols }) =>
+    tiles.length
+      ? `**${m.display_name}** — ${tiles.map((t) => `\`${coordOf(t.pos, cols)}\` ${t.name || "unnamed"}`).join(", ")}`
+      : `**${m.display_name}** — *idle*`);
+  const hits = S.tiles.filter((t) => t.status === "hit").length;
+  const spl  = S.tiles.filter((t) => t.status === "splash").length;
+  const text = `__**${CFG.title || "Crew"}**__ · ${hits} hit / ${spl} splash / ${S.tiles.length - hits - spl} open · ${stamp()}\n\n${lines.join("\n")}`;
+  try { await navigator.clipboard.writeText(text); toast("Copied — paste it into Discord"); }
+  catch { fail("Clipboard blocked")(new Error("copy manually from the console")); console.log(text); }
+});
+
+$("#expCrew").addEventListener("click", async () => {
+  $("#expCrew").disabled = true;
+  try {
+    await document.fonts.ready;
+    const rows = crewRows();
+    const W = 940, PAD = 26, HEAD = 92, ROW = 74;
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = PAD * 2 + HEAD + Math.max(rows.length, 1) * ROW;
+    const ctx = cv.getContext("2d");
+
+    ctx.fillStyle = C.abyss; ctx.fillRect(0, 0, cv.width, cv.height);
+    header(ctx, W, "CREW ASSIGNMENTS");
+
+    const avs = new Map();
+    await Promise.all(rows.map(async ({ m }) => avs.set(m.id, await avatar(m.avatar_url))));
+
+    let y = PAD + HEAD;
+    for (const { m, tiles, cols } of rows) {
+      ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PAD, y + .5); ctx.lineTo(W - PAD, y + .5); ctx.stroke();
+
+      disc(ctx, avs.get(m.id), PAD + 22, y + ROW / 2, 22, (m.display_name || "?")[0].toUpperCase());
+
+      ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      ctx.font = '600 19px "Barlow Condensed", sans-serif';
+      ctx.fillStyle = C.bone;
+      ctx.fillText(m.display_name.toUpperCase() + (m.is_admin ? " ★" : ""), PAD + 58, y + 30);
+
+      ctx.font = '400 11px "Silkscreen", monospace';
+      if (!tiles.length) {
+        ctx.fillStyle = C.mute; ctx.fillText("NOT ON A TILE", PAD + 58, y + 52);
+      } else {
+        let x = PAD + 58;
+        for (const t of tiles) {
+          const label = `${coordOf(t.pos, cols)} ${(t.name || "unnamed").slice(0, 22)}`;
+          const w = ctx.measureText(label).width + 14;
+          if (x + w > W - PAD) { ctx.fillStyle = C.mute; ctx.fillText("…", x, y + 52); break; }
+          ctx.strokeStyle = t.status === "hit" ? "#5E241F" : t.status === "splash" ? "#1F4459" : C.line;
+          ctx.fillStyle = C.hull;
+          ctx.fillRect(x, y + 40, w, 18); ctx.strokeRect(x + .5, y + 40.5, w - 1, 17);
+          ctx.fillStyle = t.status === "hit" ? C.hit : t.status === "splash" ? C.splash : C.bone;
+          ctx.fillText(label, x + 7, y + 53);
+          x += w + 6;
+        }
+      }
+      y += ROW;
+    }
+    await finish(cv, "crew.png");
+  } catch (e) { fail("Export failed")(e); }
+  finally { $("#expCrew").disabled = false; }
 });
 </script>
 </body>
