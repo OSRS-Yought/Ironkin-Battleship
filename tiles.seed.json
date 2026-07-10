@@ -1,116 +1,507 @@
 {
-  "_comment": "Transcribed from the uploaded board image, left-to-right, top-to-bottom. 10 cols x 10 rows = 100 tiles. Verify before the event — a few names were small in the source image.",
+  "_comment": "Transcribed from the uploaded board image. 10x10 = 100 tiles. 'icon' is what gets searched on the OSRS Wiki for sprite art. null means no lookup — set it from the tile panel in the app.",
   "cols": 10,
   "rows": 10,
   "tiles": [
-    { "name": "Zamorakian Spear", "qty": 3 },
-    { "name": "Crystal tool seed", "qty": 1 },
-    { "name": "Big Harpoonfish", "qty": 1 },
-    { "name": "Berserker Ring", "qty": 1 },
-    { "name": "Broken Dragon Hook", "qty": 1 },
-    { "name": "Any Armadyl Armour Piece", "qty": 3 },
-    { "name": "Skull of Vet'ion", "qty": 1 },
-    { "name": "Aranea boots", "qty": 1 },
-    { "name": "Treasonous Ring", "qty": 1 },
-    { "name": "Tome of earth", "qty": 1 },
-
-    { "name": "Bryophyta's Essence", "qty": 1 },
-    { "name": "Claws of Callisto", "qty": 1 },
-    { "name": "Doom Unique", "qty": 1 },
-    { "name": "Ring of the Gods", "qty": 1 },
-    { "name": "Abyssal Bludgeon Piece", "qty": 3 },
-    { "name": "Blue Moon Spear", "qty": 1 },
-    { "name": "Any NM Unique", "qty": 1 },
-    { "name": "Hueycoatl hide", "qty": 1 },
-    { "name": "Tome of Fire", "qty": 1 },
-    { "name": "Tyrannical Ring", "qty": 1 },
-
-    { "name": "Dragon hunter wand", "qty": 1 },
-    { "name": "Abyssal Dagger", "qty": 1 },
-    { "name": "Any Blue Moon Piece", "qty": 2 },
-    { "name": "Belle's folly", "qty": 1 },
-    { "name": "Zenyte shard", "qty": 2 },
-    { "name": "Any Hydra Unique", "qty": 1 },
-    { "name": "Abyssal Dye", "qty": 1 },
-    { "name": "Any Blood Moon Piece", "qty": 2 },
-    { "name": "Jar of feathers", "qty": 1 },
-    { "name": "Tome of Water", "qty": 1 },
-
-    { "name": "Dual Macuahuitl", "qty": 1 },
-    { "name": "Ancient Relic", "qty": 1 },
-    { "name": "Armadyl Crossbow", "qty": 1 },
-    { "name": "Armadyl Hilt", "qty": 1 },
-    { "name": "Drake's tooth", "qty": 1 },
-    { "name": "Fish Barrel", "qty": 1 },
-    { "name": "God D'Hide Shield", "qty": 1 },
-    { "name": "Any DT2 Unique (Virtus/Ring/Axe Piece)", "qty": 1 },
-    { "name": "Kraken Tentacle", "qty": 1 },
-    { "name": "Seers Ring", "qty": 3 },
-
-    { "name": "Zamorak Hilt", "qty": 1 },
-    { "name": "Any Bandos Armour Piece", "qty": 2 },
-    { "name": "Eternal Crystal", "qty": 1 },
-    { "name": "Elder venator fang", "qty": 1 },
-    { "name": "Voidwaker Hilt", "qty": 1 },
-    { "name": "Serpentine Visage", "qty": 1 },
-    { "name": "Abyssal Lantern", "qty": 1 },
-    { "name": "Venator shard", "qty": 3 },
-    { "name": "Any Barrows Item", "qty": 10 },
-    { "name": "13m Fletching XP", "qty": 1 },
-
-    { "name": "Archers ring", "qty": 1 },
-    { "name": "Any ToA Unique", "qty": 3 },
-    { "name": "13m Cooking XP", "qty": 1 },
-    { "name": "Fangs of Venenatis", "qty": 1 },
-    { "name": "Magic Fang", "qty": 1 },
-    { "name": "Tanzanite Fang", "qty": 1 },
-    { "name": "Eclipse Atlatl", "qty": 1 },
-    { "name": "13m Smithing XP", "qty": 1 },
-    { "name": "Fox Whistle", "qty": 1 },
-    { "name": "Warrior Ring", "qty": 1 },
-
-    { "name": "Gem Bag", "qty": 1 },
-    { "name": "Saradomin Sword", "qty": 1 },
-    { "name": "Jar of dirt", "qty": 1 },
-    { "name": "Tormented synapse", "qty": 2 },
-    { "name": "Black Tourmaline Core", "qty": 1 },
-    { "name": "Holy sandals", "qty": 1 },
-    { "name": "Bandos Hilt", "qty": 1 },
-    { "name": "Bottled Storm", "qty": 1 },
-    { "name": "Monkey Tail", "qty": 1 },
-    { "name": "Smouldering Stone", "qty": 1 },
-
-    { "name": "Gold locks", "qty": 1 },
-    { "name": "Ice element staff crown", "qty": 1 },
-    { "name": "Any Oathplate Armour", "qty": 1 },
-    { "name": "Fire element staff crown", "qty": 1 },
-    { "name": "Primordial Crystal", "qty": 1 },
-    { "name": "Voidwaker Gem", "qty": 1 },
-    { "name": "Ranger boots", "qty": 1 },
-    { "name": "Any CoX Unique", "qty": 3 },
-    { "name": "Blood Shard", "qty": 4 },
-    { "name": "Voidwaker Blade", "qty": 1 },
-
-    { "name": "Any ToB Unique", "qty": 2 },
-    { "name": "Saradomin Hilt", "qty": 1 },
-    { "name": "Staff of the Dead", "qty": 1 },
-    { "name": "Drake's claw", "qty": 1 },
-    { "name": "Dragon warhammer", "qty": 1 },
-    { "name": "Pegasian Crystal", "qty": 1 },
-    { "name": "Abyssal Needle", "qty": 1 },
-    { "name": "Any Eclipse Moon Piece", "qty": 2 },
-    { "name": "Any Visage", "qty": 1 },
-    { "name": "Ring of Endurance", "qty": 1 },
-
-    { "name": "Uncut Onyx", "qty": 1 },
-    { "name": "Dragon Harpoon", "qty": 1 },
-    { "name": "Vorkath's head", "qty": 3 },
-    { "name": "Any Revenant Weapon", "qty": 1 },
-    { "name": "Any Noxious Halberd Piece", "qty": 1 },
-    { "name": "Soulflame horn", "qty": 1 },
-    { "name": "Doom Unique", "qty": 1 },
-    { "name": "Burning Claw", "qty": 2 },
-    { "name": "Coal Bag", "qty": 1 },
-    { "name": "Golden Tench", "qty": 1 }
+    {
+      "name": "Zamorakian Spear",
+      "qty": 3,
+      "icon": "Zamorakian Spear"
+    },
+    {
+      "name": "Crystal tool seed",
+      "qty": 1,
+      "icon": "Crystal tool seed"
+    },
+    {
+      "name": "Big Harpoonfish",
+      "qty": 1,
+      "icon": "Big Harpoonfish"
+    },
+    {
+      "name": "Berserker Ring",
+      "qty": 1,
+      "icon": "Berserker Ring"
+    },
+    {
+      "name": "Broken Dragon Hook",
+      "qty": 1,
+      "icon": null
+    },
+    {
+      "name": "Any Armadyl Armour Piece",
+      "qty": 3,
+      "icon": "Armadyl chestplate"
+    },
+    {
+      "name": "Skull of Vet'ion",
+      "qty": 1,
+      "icon": "Skull of Vet'ion"
+    },
+    {
+      "name": "Aranea boots",
+      "qty": 1,
+      "icon": "Aranea boots"
+    },
+    {
+      "name": "Treasonous Ring",
+      "qty": 1,
+      "icon": "Treasonous Ring"
+    },
+    {
+      "name": "Tome of earth",
+      "qty": 1,
+      "icon": "Tome of earth"
+    },
+    {
+      "name": "Bryophyta's Essence",
+      "qty": 1,
+      "icon": "Bryophyta's Essence"
+    },
+    {
+      "name": "Claws of Callisto",
+      "qty": 1,
+      "icon": "Claws of Callisto"
+    },
+    {
+      "name": "Doom Unique",
+      "qty": 1,
+      "icon": null
+    },
+    {
+      "name": "Ring of the Gods",
+      "qty": 1,
+      "icon": "Ring of the Gods"
+    },
+    {
+      "name": "Abyssal Bludgeon Piece",
+      "qty": 3,
+      "icon": "Bludgeon axon"
+    },
+    {
+      "name": "Blue Moon Spear",
+      "qty": 1,
+      "icon": "Blue Moon Spear"
+    },
+    {
+      "name": "Any NM Unique",
+      "qty": 1,
+      "icon": "Nightmare staff"
+    },
+    {
+      "name": "Hueycoatl hide",
+      "qty": 1,
+      "icon": "Hueycoatl hide"
+    },
+    {
+      "name": "Tome of Fire",
+      "qty": 1,
+      "icon": "Tome of Fire"
+    },
+    {
+      "name": "Tyrannical Ring",
+      "qty": 1,
+      "icon": "Tyrannical Ring"
+    },
+    {
+      "name": "Dragon hunter wand",
+      "qty": 1,
+      "icon": "Dragon hunter wand"
+    },
+    {
+      "name": "Abyssal Dagger",
+      "qty": 1,
+      "icon": "Abyssal Dagger"
+    },
+    {
+      "name": "Any Blue Moon Piece",
+      "qty": 2,
+      "icon": "Blue moon chestplate"
+    },
+    {
+      "name": "Belle's folly",
+      "qty": 1,
+      "icon": null
+    },
+    {
+      "name": "Zenyte shard",
+      "qty": 2,
+      "icon": "Zenyte shard"
+    },
+    {
+      "name": "Any Hydra Unique",
+      "qty": 1,
+      "icon": "Hydra's claw"
+    },
+    {
+      "name": "Abyssal Dye",
+      "qty": 1,
+      "icon": "Abyssal Dye"
+    },
+    {
+      "name": "Any Blood Moon Piece",
+      "qty": 2,
+      "icon": "Blood moon chestplate"
+    },
+    {
+      "name": "Jar of feathers",
+      "qty": 1,
+      "icon": null
+    },
+    {
+      "name": "Tome of Water",
+      "qty": 1,
+      "icon": "Tome of Water"
+    },
+    {
+      "name": "Dual Macuahuitl",
+      "qty": 1,
+      "icon": "Dual Macuahuitl"
+    },
+    {
+      "name": "Ancient Relic",
+      "qty": 1,
+      "icon": "Ancient Relic"
+    },
+    {
+      "name": "Armadyl Crossbow",
+      "qty": 1,
+      "icon": "Armadyl Crossbow"
+    },
+    {
+      "name": "Armadyl Hilt",
+      "qty": 1,
+      "icon": "Armadyl Hilt"
+    },
+    {
+      "name": "Drake's tooth",
+      "qty": 1,
+      "icon": "Drake's tooth"
+    },
+    {
+      "name": "Fish Barrel",
+      "qty": 1,
+      "icon": "Fish Barrel"
+    },
+    {
+      "name": "God D'Hide Shield",
+      "qty": 1,
+      "icon": "Saradomin kiteshield"
+    },
+    {
+      "name": "Any DT2 Unique (Virtus/Ring/Axe Piece)",
+      "qty": 1,
+      "icon": "Virtus mask"
+    },
+    {
+      "name": "Kraken Tentacle",
+      "qty": 1,
+      "icon": "Kraken Tentacle"
+    },
+    {
+      "name": "Seers Ring",
+      "qty": 3,
+      "icon": "Seers Ring"
+    },
+    {
+      "name": "Zamorak Hilt",
+      "qty": 1,
+      "icon": "Zamorak Hilt"
+    },
+    {
+      "name": "Any Bandos Armour Piece",
+      "qty": 2,
+      "icon": "Bandos chestplate"
+    },
+    {
+      "name": "Eternal Crystal",
+      "qty": 1,
+      "icon": "Eternal Crystal"
+    },
+    {
+      "name": "Elder venator fang",
+      "qty": 1,
+      "icon": "Elder venator fang"
+    },
+    {
+      "name": "Voidwaker Hilt",
+      "qty": 1,
+      "icon": "Voidwaker Hilt"
+    },
+    {
+      "name": "Serpentine Visage",
+      "qty": 1,
+      "icon": "Serpentine Visage"
+    },
+    {
+      "name": "Abyssal Lantern",
+      "qty": 1,
+      "icon": "Abyssal Lantern"
+    },
+    {
+      "name": "Venator shard",
+      "qty": 3,
+      "icon": "Venator shard"
+    },
+    {
+      "name": "Any Barrows Item",
+      "qty": 10,
+      "icon": "Dharok's greataxe"
+    },
+    {
+      "name": "13m Fletching XP",
+      "qty": 1,
+      "icon": "Fletching"
+    },
+    {
+      "name": "Archers ring",
+      "qty": 1,
+      "icon": "Archers ring"
+    },
+    {
+      "name": "Any ToA Unique",
+      "qty": 3,
+      "icon": "Tumeken's shadow"
+    },
+    {
+      "name": "13m Cooking XP",
+      "qty": 1,
+      "icon": "Cooking"
+    },
+    {
+      "name": "Fangs of Venenatis",
+      "qty": 1,
+      "icon": "Fangs of Venenatis"
+    },
+    {
+      "name": "Magic Fang",
+      "qty": 1,
+      "icon": "Magic Fang"
+    },
+    {
+      "name": "Tanzanite Fang",
+      "qty": 1,
+      "icon": "Tanzanite Fang"
+    },
+    {
+      "name": "Eclipse Atlatl",
+      "qty": 1,
+      "icon": "Eclipse Atlatl"
+    },
+    {
+      "name": "13m Smithing XP",
+      "qty": 1,
+      "icon": "Smithing"
+    },
+    {
+      "name": "Fox Whistle",
+      "qty": 1,
+      "icon": "Fox Whistle"
+    },
+    {
+      "name": "Warrior Ring",
+      "qty": 1,
+      "icon": "Warrior Ring"
+    },
+    {
+      "name": "Gem Bag",
+      "qty": 1,
+      "icon": "Gem Bag"
+    },
+    {
+      "name": "Saradomin Sword",
+      "qty": 1,
+      "icon": "Saradomin Sword"
+    },
+    {
+      "name": "Jar of dirt",
+      "qty": 1,
+      "icon": "Jar of dirt"
+    },
+    {
+      "name": "Tormented synapse",
+      "qty": 2,
+      "icon": "Tormented synapse"
+    },
+    {
+      "name": "Black Tourmaline Core",
+      "qty": 1,
+      "icon": "Black Tourmaline Core"
+    },
+    {
+      "name": "Holy sandals",
+      "qty": 1,
+      "icon": "Holy sandals"
+    },
+    {
+      "name": "Bandos Hilt",
+      "qty": 1,
+      "icon": "Bandos Hilt"
+    },
+    {
+      "name": "Bottled Storm",
+      "qty": 1,
+      "icon": "Bottled Storm"
+    },
+    {
+      "name": "Monkey Tail",
+      "qty": 1,
+      "icon": "Monkey Tail"
+    },
+    {
+      "name": "Smouldering Stone",
+      "qty": 1,
+      "icon": "Smouldering Stone"
+    },
+    {
+      "name": "Gold locks",
+      "qty": 1,
+      "icon": "Gold locks"
+    },
+    {
+      "name": "Ice element staff crown",
+      "qty": 1,
+      "icon": "Ice element staff crown"
+    },
+    {
+      "name": "Any Oathplate Armour",
+      "qty": 1,
+      "icon": "Oathplate chest"
+    },
+    {
+      "name": "Fire element staff crown",
+      "qty": 1,
+      "icon": "Fire element staff crown"
+    },
+    {
+      "name": "Primordial Crystal",
+      "qty": 1,
+      "icon": "Primordial Crystal"
+    },
+    {
+      "name": "Voidwaker Gem",
+      "qty": 1,
+      "icon": "Voidwaker Gem"
+    },
+    {
+      "name": "Ranger boots",
+      "qty": 1,
+      "icon": "Ranger boots"
+    },
+    {
+      "name": "Any CoX Unique",
+      "qty": 3,
+      "icon": "Twisted bow"
+    },
+    {
+      "name": "Blood Shard",
+      "qty": 4,
+      "icon": "Blood Shard"
+    },
+    {
+      "name": "Voidwaker Blade",
+      "qty": 1,
+      "icon": "Voidwaker Blade"
+    },
+    {
+      "name": "Any ToB Unique",
+      "qty": 2,
+      "icon": "Scythe of vitur"
+    },
+    {
+      "name": "Saradomin Hilt",
+      "qty": 1,
+      "icon": "Saradomin Hilt"
+    },
+    {
+      "name": "Staff of the Dead",
+      "qty": 1,
+      "icon": "Staff of the Dead"
+    },
+    {
+      "name": "Drake's claw",
+      "qty": 1,
+      "icon": "Drake's claw"
+    },
+    {
+      "name": "Dragon warhammer",
+      "qty": 1,
+      "icon": "Dragon warhammer"
+    },
+    {
+      "name": "Pegasian Crystal",
+      "qty": 1,
+      "icon": "Pegasian Crystal"
+    },
+    {
+      "name": "Abyssal Needle",
+      "qty": 1,
+      "icon": "Abyssal Needle"
+    },
+    {
+      "name": "Any Eclipse Moon Piece",
+      "qty": 2,
+      "icon": "Eclipse moon chestplate"
+    },
+    {
+      "name": "Any Visage",
+      "qty": 1,
+      "icon": "Draconic visage"
+    },
+    {
+      "name": "Ring of Endurance",
+      "qty": 1,
+      "icon": "Ring of Endurance"
+    },
+    {
+      "name": "Uncut Onyx",
+      "qty": 1,
+      "icon": "Uncut Onyx"
+    },
+    {
+      "name": "Dragon Harpoon",
+      "qty": 1,
+      "icon": "Dragon Harpoon"
+    },
+    {
+      "name": "Vorkath's head",
+      "qty": 3,
+      "icon": "Vorkath's head"
+    },
+    {
+      "name": "Any Revenant Weapon",
+      "qty": 1,
+      "icon": "Craw's bow"
+    },
+    {
+      "name": "Any Noxious Halberd Piece",
+      "qty": 1,
+      "icon": "Noxious point"
+    },
+    {
+      "name": "Soulflame horn",
+      "qty": 1,
+      "icon": "Soulflame horn"
+    },
+    {
+      "name": "Doom Unique",
+      "qty": 1,
+      "icon": null
+    },
+    {
+      "name": "Burning Claw",
+      "qty": 2,
+      "icon": "Burning Claw"
+    },
+    {
+      "name": "Coal Bag",
+      "qty": 1,
+      "icon": "Coal Bag"
+    },
+    {
+      "name": "Golden Tench",
+      "qty": 1,
+      "icon": "Golden Tench"
+    }
   ]
 }

@@ -119,15 +119,15 @@
   .board-scroll{flex:1;overflow:auto;padding:22px 20px 40px}
   .grid{
     display:grid;
-    grid-template-columns:22px repeat(var(--cols,10), minmax(58px, 1fr));
+    grid-template-columns:24px repeat(var(--cols,10), minmax(76px, 1fr));
     gap:4px;
     min-width:min-content;
-    max-width:1180px;
+    max-width:1480px;
     margin:0 auto;
   }
   .gut{
     display:flex;align-items:center;justify-content:center;
-    font-family:var(--data);font-size:10px;color:var(--line-2);
+    font-family:var(--data);font-size:11px;color:var(--line-2);
     user-select:none;
   }
   .gut-col{height:20px}
@@ -147,14 +147,14 @@
   .tile[data-sel="1"]{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
 
   .tile-art{
-    position:absolute;left:0;right:0;top:0;bottom:36%;
+    position:absolute;left:0;right:0;top:0;bottom:34%;
     background-size:contain;
     background-repeat:no-repeat;
     background-position:center;
   }
   .tile-name{
-    position:absolute;left:0;right:0;bottom:0;height:36%;
-    font-family:var(--disp);font-weight:600;font-size:10px;line-height:1.05;
+    position:absolute;left:0;right:0;bottom:0;height:34%;
+    font-family:var(--disp);font-weight:600;font-size:12px;line-height:1.08;
     letter-spacing:.01em;
     padding:2px 3px;
     display:flex;align-items:center;justify-content:center;text-align:center;
@@ -163,36 +163,36 @@
   }
   .tile-qty{
     position:absolute;top:3px;right:3px;
-    font-family:var(--data);font-size:9px;
+    font-family:var(--data);font-size:10px;
     background:var(--gold);color:#160E02;
-    padding:1px 3px;line-height:1;
+    padding:2px 4px;line-height:1;
   }
   .tile-coord{
-    position:absolute;top:3px;left:4px;
-    font-family:var(--data);font-size:8px;color:rgba(231,224,210,.35);
+    position:absolute;top:4px;left:5px;
+    font-family:var(--data);font-size:9px;color:rgba(231,224,210,.4);
   }
 
   .pins{
-    position:absolute;right:4px;bottom:38%;
+    position:absolute;right:4px;bottom:36%;
     display:flex;flex-direction:row-reverse;
     pointer-events:none;
   }
   .pin{
-    width:30px;height:30px;border-radius:50%;
+    width:36px;height:36px;border-radius:50%;
     border:2px solid var(--abyss);
     box-shadow:0 0 0 1.5px var(--gold-dim);
     background:var(--hull-2);
-    margin-left:-9px;
+    margin-left:-11px;
     object-fit:cover;
   }
   .pin-more{
-    width:30px;height:30px;border-radius:50%;
+    width:36px;height:36px;border-radius:50%;
     border:2px solid var(--abyss);
     box-shadow:0 0 0 1.5px var(--gold-dim);
     background:var(--gold);color:#160E02;
-    font-family:var(--data);font-size:9px;
+    font-family:var(--data);font-size:10px;
     display:flex;align-items:center;justify-content:center;
-    margin-left:-9px;
+    margin-left:-11px;
   }
 
   /* status overlays */
@@ -363,7 +363,7 @@
     }
     .panel.panel-idle{display:none}
     .grid{grid-template-columns:18px repeat(var(--cols,10), 56px)}
-    .pin,.pin-more{width:21px;height:21px;margin-left:-7px}
+    .pin,.pin-more{width:24px;height:24px;margin-left:-8px}
     .pin-more{font-size:8px}
     .tally-cell{min-width:52px;padding:5px 9px}
     .brand-title{font-size:18px}
@@ -480,6 +480,20 @@
           icons are getting clipped, down if you see leftover text.
         </p>
         <div class="prog" id="prog"><div class="prog-bar" id="progBar"></div></div>
+      </div>
+
+      <div class="a-card">
+        <div class="a-h">Fetch icons from the OSRS Wiki</div>
+        <p class="a-p">
+          Replaces each tile's sliced art with the real item sprite from the wiki —
+          transparent, high resolution, no baked-in text. Lookup names come from
+          <code>tiles.seed.json</code>, matched by tile name.
+          <strong>This does not touch claims, hits, or splashes</strong>, so it is safe
+          to run mid-event. Takes about a minute for 100 tiles.
+        </p>
+        <button class="btn btn-gold" id="wikiBtn">Fetch icons</button>
+        <div class="prog" id="wikiProg"><div class="prog-bar" id="wikiBar"></div></div>
+        <div class="crew" id="wikiMiss" style="margin-top:14px"></div>
       </div>
 
       <div class="a-card">
@@ -819,7 +833,8 @@ function renderPanel() {
 
   p.innerHTML = `
     <div class="p-head">
-      <div class="p-art" style="${t.image ? `background-image:url(${t.image})` : ""}"></div>
+      <div class="p-art" id="pArt" style="${t.image ? `background-image:url(${t.image})` : ""}"
+           title="${S.me.is_admin ? "Click to set this tile's icon" : ""}"></div>
       <div>
         <div class="p-coord">${coordOf(t.pos, cols)}</div>
         <div class="p-name">${esc(t.name || "Unnamed tile")}</div>
@@ -875,6 +890,11 @@ function renderPanel() {
     row.appendChild(x);
     crewBox.appendChild(row);
   });
+
+  if (S.me.is_admin) {
+    $("#pArt").style.cursor = "pointer";
+    $("#pArt").addEventListener("click", () => setTileIcon(t));
+  }
 
   $("#addBtn").addEventListener("click", () => {
     const id = $("#addSel").value;
@@ -1103,6 +1123,139 @@ $("#resetBtn").addEventListener("click", async () => {
   await loadAll();
 });
 
+// ---------------- OSRS Wiki sprites ----------------
+
+const WIKI = "https://oldschool.runescape.wiki/api.php";
+
+// Resolve a name to a sprite URL. Tries the item's "detail" render first —
+// that's the big transparent one — then the page's lead image, then gives up.
+async function wikiSprite(query) {
+  const call = async (params) => {
+    const u = new URL(WIKI);
+    Object.entries({ format: "json", formatversion: "2", origin: "*", ...params })
+      .forEach(([k, v]) => u.searchParams.set(k, v));
+    const r = await fetch(u, { mode: "cors" });
+    if (!r.ok) throw new Error("wiki " + r.status);
+    return r.json();
+  };
+
+  // 1. File:<name> detail.png — the convention for item renders
+  try {
+    const j = await call({
+      action: "query", prop: "imageinfo", iiprop: "url", iiurlwidth: "220",
+      titles: `File:${query} detail.png`,
+    });
+    const p = j.query?.pages?.[0];
+    if (p && !p.missing) return p.imageinfo[0].thumburl;
+  } catch { /* fall through */ }
+
+  // 2. search for the page, take its lead image
+  try {
+    const j = await call({
+      action: "query", generator: "search", gsrsearch: query, gsrlimit: "1",
+      prop: "pageimages", pithumbsize: "220",
+    });
+    const p = j.query?.pages?.[0];
+    if (p?.thumbnail?.source) return p.thumbnail.source;
+  } catch { /* fall through */ }
+
+  return null;
+}
+
+// Fetch through CORS so the canvas stays untainted, then normalise to a
+// square transparent PNG so tiles line up regardless of the source's aspect.
+async function spriteDataUrl(url) {
+  const blob = await (await fetch(url, { mode: "cors" })).blob();
+  const bmp = await createImageBitmap(blob);
+  const N = 176;
+  const cv = document.createElement("canvas");
+  cv.width = N; cv.height = N;
+  const ctx = cv.getContext("2d");
+  const k = Math.min(N / bmp.width, N / bmp.height, 1.6);
+  const w = bmp.width * k, h = bmp.height * k;
+  ctx.drawImage(bmp, (N - w) / 2, (N - h) / 2, w, h);
+  return cv.toDataURL("image/png");
+}
+
+async function iconMap() {
+  const seed = await fetch("./tiles.seed.json").then((r) => r.json());
+  const m = new Map();
+  for (const t of seed.tiles || []) if (t.icon) m.set(t.name, t.icon);
+  return m;
+}
+
+$("#wikiBtn").addEventListener("click", async () => {
+  if (!S.tiles.length) return toast("Build the board first", "bad");
+  $("#wikiBtn").disabled = true;
+  $("#wikiProg").style.display = "block";
+  $("#wikiMiss").innerHTML = "";
+
+  const misses = [];
+  try {
+    const map = await iconMap();
+    let done = 0;
+
+    const work = S.tiles.map((t) => async () => {
+      const q = map.get(t.name) || null;
+      if (!q) { misses.push([t, "no lookup name in tiles.seed.json"]); return; }
+      try {
+        const url = await wikiSprite(q);
+        if (!url) throw new Error("no sprite found for " + q);
+        const image = await spriteDataUrl(url);
+        const { error } = await sb.from("tiles").update({ image }).eq("id", t.id);
+        if (error) throw error;
+      } catch (e) {
+        misses.push([t, e.message || String(e)]);
+      } finally {
+        done++;
+        $("#wikiBar").style.width = Math.round((done / S.tiles.length) * 100) + "%";
+      }
+    });
+
+    // four at a time — enough to be quick, polite enough not to get rate limited
+    const queue = work.slice();
+    await Promise.all(Array.from({ length: 4 }, async () => {
+      while (queue.length) await queue.shift()();
+    }));
+
+    toast(`${S.tiles.length - misses.length} icons updated` + (misses.length ? `, ${misses.length} skipped` : ""));
+    await loadAll();
+  } catch (e) {
+    fail("Icon fetch failed")(e);
+  } finally {
+    $("#wikiBtn").disabled = false;
+    $("#wikiProg").style.display = "none";
+    $("#wikiBar").style.width = "0%";
+  }
+
+  const box = $("#wikiMiss");
+  if (!misses.length) { box.appendChild(el("div", "crew-none", "Every tile got a sprite.")); return; }
+  box.appendChild(el("div", "p-sec-h", `Skipped — set these from the tile panel`));
+  misses.sort((a, b) => a[0].pos - b[0].pos).forEach(([t, why]) => {
+    const row = el("div", "crew-row");
+    row.appendChild(el("div", "crew-name", `${coordOf(t.pos, S.board.cols || 10)} · ${t.name || "unnamed"}`));
+    const w = el("div", null, why);
+    w.style.cssText = "font-family:var(--data);font-size:8px;color:var(--mute);max-width:220px;text-align:right";
+    row.appendChild(w);
+    box.appendChild(row);
+  });
+});
+
+async function setTileIcon(tile) {
+  const q = prompt(`Wiki page or item name for "${tile.name}"\n(e.g. "Twisted bow"). Blank to leave as-is.`, tile.name || "");
+  if (!q) return;
+  toast("Looking it up…");
+  try {
+    const url = await wikiSprite(q);
+    if (!url) return toast(`No sprite found for "${q}"`, "bad");
+    const image = await spriteDataUrl(url);
+    const { error } = await sb.from("tiles").update({ image }).eq("id", tile.id);
+    if (error) throw error;
+    toast("Icon set");
+    await loadAll();
+  } catch (e) { fail("Lookup failed")(e); }
+}
+
 // ---------------- names ----------------
 
 async function saveRsn(memberId, value) {
@@ -1322,7 +1475,7 @@ $("#expBoard").addEventListener("click", async () => {
     await document.fonts.ready;
     const cols = S.board.cols || 10;
     const rows = Math.ceil(S.tiles.length / cols);
-    const CELL = 104, GUT = 28, PAD = 26, HEAD = 92;
+    const CELL = 124, GUT = 30, PAD = 26, HEAD = 92;
 
     const w = PAD * 2 + GUT + cols * CELL;
     const h = PAD * 2 + HEAD + GUT + rows * CELL;
@@ -1348,7 +1501,7 @@ $("#expBoard").addEventListener("click", async () => {
       const t = S.tiles[i];
       const x = ox + (t.pos % cols) * CELL, y = oy + Math.floor(t.pos / cols) * CELL;
       const s = CELL - 4;
-      const artH = s * 0.64;
+      const artH = s * 0.66;
 
       ctx.fillStyle = C.hull; ctx.fillRect(x, y, s, s);
       const art = arts[i];
@@ -1363,10 +1516,10 @@ $("#expBoard").addEventListener("click", async () => {
       }
 
       if (t.status === "open" && t.name) {
-        ctx.font = '600 11px "Barlow Condensed", sans-serif';
+        ctx.font = '600 13px "Barlow Condensed", sans-serif';
         ctx.fillStyle = C.bone;
         ctx.textAlign = "center"; ctx.textBaseline = "top";
-        wrap(ctx, t.name, x + s / 2, y + artH + 3, s - 6, 11, 3);
+        wrap(ctx, t.name, x + s / 2, y + artH + 3, s - 6, 13, 3);
       }
 
       if (t.status === "hit")    { ctx.fillStyle = "rgba(26,14,12,.5)"; ctx.fillRect(x, y, s, s); burst(ctx, x + s/2, y + s/2, s * .74); }
@@ -1390,7 +1543,7 @@ $("#expBoard").addEventListener("click", async () => {
         const all = S.assigns.get(t.id) || [];
         const shown = all.slice(0, 3);
         const extra = all.length - shown.length;
-        const R = 15, STEP = 21;
+        const R = 18, STEP = 25;
         const px = x + s - 5 - R, py = y + artH - 10;
 
         shown.forEach((id, k) => {
