@@ -147,20 +147,19 @@
   .tile[data-sel="1"]{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
 
   .tile-art{
-    position:absolute;inset:0;
-    background-size:cover;background-position:center;
-    image-rendering:auto;
+    position:absolute;left:0;right:0;top:0;bottom:36%;
+    background-size:contain;
+    background-repeat:no-repeat;
+    background-position:center;
   }
   .tile-name{
-    position:absolute;left:0;right:0;bottom:0;
-    font-family:var(--disp);font-weight:600;font-size:10px;line-height:1.1;
-    letter-spacing:.02em;
-    padding:12px 3px 3px;
-    text-align:center;
-    background:linear-gradient(180deg, transparent, rgba(8,13,18,.92) 55%);
+    position:absolute;left:0;right:0;bottom:0;height:36%;
+    font-family:var(--disp);font-weight:600;font-size:10px;line-height:1.05;
+    letter-spacing:.01em;
+    padding:2px 3px;
+    display:flex;align-items:center;justify-content:center;text-align:center;
     color:var(--bone);
     overflow:hidden;
-    max-height:60%;
   }
   .tile-qty{
     position:absolute;top:3px;right:3px;
@@ -235,7 +234,7 @@
   }
 
   .p-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}
-  .p-art{width:64px;height:64px;flex:none;border:1px solid var(--line);background-size:cover;background-position:center}
+  .p-art{width:64px;height:64px;flex:none;border:1px solid var(--line);background-size:contain;background-repeat:no-repeat;background-position:center}
   .p-coord{font-family:var(--data);font-size:9px;color:var(--gold);letter-spacing:.14em}
   .p-name{font-family:var(--disp);font-weight:700;font-size:21px;line-height:1.1;text-transform:uppercase;letter-spacing:.03em;margin-top:5px}
   .p-qty{font-family:var(--data);font-size:9px;color:var(--mute);margin-top:6px;letter-spacing:.1em}
@@ -458,12 +457,22 @@
             <label class="a-lab" for="inRows">Rows</label>
             <input class="a-in" id="inRows" type="number" min="1" max="30" value="10" />
           </div>
-          <div class="a-field" style="flex:1">
+          <div class="a-field">
+            <label class="a-lab" for="inCrop">Sprite %</label>
+            <input class="a-in" id="inCrop" type="number" min="20" max="100" value="60" />
+          </div>
+          <div class="a-field" style="flex:1;min-width:180px">
             <label class="a-lab" for="inImg">Board image</label>
             <input id="inImg" type="file" accept="image/*" style="font-size:12px" />
           </div>
           <button class="btn btn-gold" id="buildBtn">Slice &amp; publish</button>
         </div>
+        <p class="a-p" style="margin:12px 0 0">
+          <strong>Sprite %</strong> is how much of each cell, measured from the top, holds the
+          item icon. The rest is the baked-in name, which gets thrown away — the app draws
+          names as real text instead. 60 suits a board like the one you sent. Turn it up if
+          icons are getting clipped, down if you see leftover text.
+        </p>
         <div class="prog" id="prog"><div class="prog-bar" id="progBar"></div></div>
       </div>
 
@@ -474,6 +483,17 @@
           with the task, not the cell. Run this after both teams have placed ships.
         </p>
         <button class="btn" id="shuffleBtn">Shuffle the board</button>
+      </div>
+
+      <div class="a-card">
+        <div class="a-h">In-game names</div>
+        <p class="a-p">
+          Discord names show everywhere by default. Set a RuneScape name here and it
+          replaces the Discord name on tiles, the crew list, and both exports. Discord
+          overwrites its own name field on every login; this one it never touches.
+          Blank the field to fall back to Discord.
+        </p>
+        <div class="crew" id="rsnList"></div>
       </div>
 
       <div class="a-card">
@@ -537,6 +557,9 @@ const S = {
 
 const COL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const coordOf = (pos, cols) => COL_LETTERS[pos % cols] + (Math.floor(pos / cols) + 1);
+
+// rsn wins over the Discord name whenever it is set
+const nameOf = (m) => (m && m.rsn && m.rsn.trim()) || m?.display_name || "Unknown";
 
 // ---------------- toast ----------------
 
@@ -604,7 +627,10 @@ async function start(user) {
   $("#appSub").textContent = CFG.subtitle || "";
   document.title = CFG.title || "Battleship Bingo";
   $("#meAv").src = S.me.avatar_url || "";
-  $("#meName").textContent = S.me.display_name;
+  $("#meName").textContent = nameOf(S.me);
+  $("#meName").title = "Click to set your in-game name";
+  $("#meName").style.cursor = "pointer";
+  $("#meName").addEventListener("click", setMyRsn);
   if (S.me.is_admin) {
     $("#meRole").textContent = "Admiral";
     $("#adminChip").classList.remove("hidden");
@@ -744,8 +770,8 @@ function tileNode(t, cols) {
         const img = document.createElement("img");
         img.className = "pin";
         img.src = m?.avatar_url || "";
-        img.alt = m?.display_name || "";
-        img.title = m?.display_name || "";
+        img.alt = nameOf(m);
+        img.title = nameOf(m);
         pins.appendChild(img);
       });
       if (ids.length > 3) pins.appendChild(el("div", "pin-more", "+" + (ids.length - 3)));
@@ -783,7 +809,7 @@ function renderPanel() {
   const crew = ids.map((id) => S.members.get(id)).filter(Boolean);
   const unassigned = [...S.members.values()]
     .filter((m) => !ids.includes(m.id))
-    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+    .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
 
   p.innerHTML = `
     <div class="p-head">
@@ -801,7 +827,7 @@ function renderPanel() {
       <div class="add-row">
         <select class="sel" id="addSel">
           <option value="">Add someone…</option>
-          ${unassigned.map((m) => `<option value="${m.id}">${esc(m.display_name)}</option>`).join("")}
+          ${unassigned.map((m) => `<option value="${m.id}">${esc(nameOf(m))}</option>`).join("")}
         </select>
         <button class="btn btn-sm" id="addBtn">Add</button>
       </div>
@@ -819,7 +845,7 @@ function renderPanel() {
            </div>`
         : `<button class="btn" data-mark="open" style="width:100%">Undo — back to unfired</button>`}
       ${t.resolved_by && t.status !== "open"
-        ? `<div class="resolved-by">Called by ${esc(S.members.get(t.resolved_by)?.display_name || "someone")}<br>${new Date(t.resolved_at).toLocaleString()}</div>`
+        ? `<div class="resolved-by">Called by ${esc(nameOf(S.members.get(t.resolved_by)) )}<br>${new Date(t.resolved_at).toLocaleString()}</div>`
         : ""}
     </div>
 
@@ -836,7 +862,7 @@ function renderPanel() {
     const img = document.createElement("img");
     img.className = "crew-av"; img.src = m.avatar_url || ""; img.alt = "";
     row.appendChild(img);
-    row.appendChild(el("div", "crew-name", m.display_name));
+    row.appendChild(el("div", "crew-name", nameOf(m)));
     const x = el("button", "crew-x", "✕");
     x.title = "Remove";
     x.addEventListener("click", () => unassign(t.id, m.id));
@@ -909,7 +935,7 @@ function renderRoster() {
   v.innerHTML = "";
   [...S.members.values()]
     .sort((a, b) => (byMember.get(b.id)?.length || 0) - (byMember.get(a.id)?.length || 0)
-                 || a.display_name.localeCompare(b.display_name))
+                 || nameOf(a).localeCompare(nameOf(b)))
     .forEach((m) => {
       const row = el("div", "r-row");
       const img = document.createElement("img");
@@ -918,7 +944,7 @@ function renderRoster() {
 
       const right = el("div");
       right.style.flex = "1";
-      right.appendChild(el("div", "r-name", m.display_name + (m.is_admin ? " ★" : "")));
+      right.appendChild(el("div", "r-name", nameOf(m) + (m.is_admin ? " ★" : "")));
 
       const tiles = (byMember.get(m.id) || []).filter(Boolean);
       if (!tiles.length) {
@@ -958,7 +984,7 @@ function setView(name) {
 }
 $$("[data-view]").forEach((b) => b.addEventListener("click", () => {
   setView(b.dataset.view);
-  if (b.dataset.view === "admin") renderAllow();
+  if (b.dataset.view === "admin") { renderAllow(); renderRsn(); }
 }));
 
 $$("[data-filter]").forEach((b) => b.addEventListener("click", () => {
@@ -987,9 +1013,17 @@ $("#buildBtn").addEventListener("click", async () => {
   try {
     const img = await readImage(file);
     const cw = img.width / cols, ch = img.height / rows;
+    const crop = Math.min(100, Math.max(20, parseInt($("#inCrop").value, 10) || 60)) / 100;
+
+    // Slice at the source's own resolution. Never upscale — that only adds blur.
+    // Cap at 256 so an enormous upload doesn't push megabytes per tile.
+    const sw = Math.min(256, Math.round(cw));
+    const sh = Math.min(256, Math.round(ch * crop));
+
     const cv = document.createElement("canvas");
-    cv.width = 128; cv.height = 128;
+    cv.width = sw; cv.height = sh;
     const ctx = cv.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
 
     let names = [];
     try {
@@ -1000,15 +1034,20 @@ $("#buildBtn").addEventListener("click", async () => {
     const rowsOut = [];
     for (let i = 0; i < cols * rows; i++) {
       const r = Math.floor(i / cols), c = i % cols;
-      ctx.clearRect(0, 0, 128, 128);
-      ctx.drawImage(img, c * cw, r * ch, cw, ch, 0, 0, 128, 128);
+      ctx.clearRect(0, 0, sw, sh);
+      ctx.drawImage(img, c * cw, r * ch, cw, ch * crop, 0, 0, sw, sh);
       rowsOut.push({
         pos: i,
         name: names[i]?.name || "",
         qty: names[i]?.qty || 1,
-        image: cv.toDataURL("image/webp", 0.82),
+        image: cv.toDataURL("image/png"), // lossless: item sprites are pixel art
         status: "open",
       });
+    }
+
+    const mb = rowsOut.reduce((n, t) => n + t.image.length, 0) / 1048576;
+    if (mb > 12 && !confirm(`These slices total about ${mb.toFixed(1)} MB. That will make the board slow to load. Continue?`)) {
+      throw new Error("cancelled");
     }
 
     await sb.from("tiles").delete().neq("pos", -1);
@@ -1057,6 +1096,59 @@ $("#resetBtn").addEventListener("click", async () => {
   toast("Board reset");
   await loadAll();
 });
+
+// ---------------- names ----------------
+
+async function saveRsn(memberId, value) {
+  const rsn = (value || "").trim() || null;
+  const { error } = await sb.from("members").update({ rsn }).eq("id", memberId);
+  if (error) return fail("Could not save the name")(error);
+  if (memberId === S.me.id) S.me.rsn = rsn;
+  toast(rsn ? "Name set" : "Reverted to Discord name");
+  await loadAll();
+  renderRsn();
+}
+
+async function setMyRsn() {
+  const v = prompt("Your in-game name (leave blank to use your Discord name)", S.me.rsn || "");
+  if (v === null) return;
+  await saveRsn(S.me.id, v);
+  $("#meName").textContent = nameOf(S.me);
+}
+
+function renderRsn() {
+  const box = $("#rsnList");
+  if (!box) return;
+  box.innerHTML = "";
+  [...S.members.values()]
+    .sort((a, b) => nameOf(a).localeCompare(nameOf(b)))
+    .forEach((m) => {
+      const row = el("div", "crew-row");
+      const img = document.createElement("img");
+      img.className = "crew-av"; img.src = m.avatar_url || ""; img.alt = "";
+      row.appendChild(img);
+
+      const who = el("div");
+      who.style.cssText = "flex:1;min-width:0";
+      who.appendChild(el("div", "crew-name", m.display_name));
+      const tag = el("div", null, "discord");
+      tag.style.cssText = "font-family:var(--data);font-size:8px;letter-spacing:.12em;color:var(--mute)";
+      who.appendChild(tag);
+      row.appendChild(who);
+
+      const inp = document.createElement("input");
+      inp.className = "a-in";
+      inp.style.width = "150px";
+      inp.placeholder = "in-game name";
+      inp.value = m.rsn || "";
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") inp.blur(); });
+      inp.addEventListener("blur", () => {
+        if ((inp.value.trim() || null) !== (m.rsn || null)) saveRsn(m.id, inp.value);
+      });
+      row.appendChild(inp);
+      box.appendChild(row);
+    });
+}
 
 // ---------------- admin: crew roster ----------------
 
@@ -1157,6 +1249,30 @@ function rings(ctx, cx, cy, s) {
   ctx.globalAlpha = 1;
 }
 
+function wrap(ctx, text, cx, top, maxW, lineH, maxLines) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    else line = test;
+    if (lines.length === maxLines) break;
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  lines.forEach((l, i) => {
+    let out = l;
+    if (i === maxLines - 1 && lines.length === maxLines) {
+      const rest = words.join(" ");
+      if (ctx.measureText(lines.join(" ")).width < ctx.measureText(rest).width - 2) {
+        while (out.length > 1 && ctx.measureText(out + "…").width > maxW) out = out.slice(0, -1);
+        if (out !== l) out += "…";
+      }
+    }
+    ctx.fillText(out, cx, top + i * lineH);
+  });
+}
+
 async function finish(cv, name) {
   const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
   try {
@@ -1226,14 +1342,25 @@ $("#expBoard").addEventListener("click", async () => {
       const t = S.tiles[i];
       const x = ox + (t.pos % cols) * CELL, y = oy + Math.floor(t.pos / cols) * CELL;
       const s = CELL - 4;
+      const artH = s * 0.64;
 
       ctx.fillStyle = C.hull; ctx.fillRect(x, y, s, s);
       const art = arts[i];
       if (art) {
+        // contain, centered, in the top band — mirrors the on-screen tile
+        const k = Math.min(s / art.width, artH / art.height);
+        const aw = art.width * k, ah = art.height * k;
         ctx.save();
         if (t.status !== "open") ctx.filter = "saturate(.25) brightness(.42)";
-        ctx.drawImage(art, x, y, s, s);
+        ctx.drawImage(art, x + (s - aw) / 2, y + (artH - ah) / 2, aw, ah);
         ctx.restore();
+      }
+
+      if (t.status === "open" && t.name) {
+        ctx.font = '600 11px "Barlow Condensed", sans-serif';
+        ctx.fillStyle = C.bone;
+        ctx.textAlign = "center"; ctx.textBaseline = "top";
+        wrap(ctx, t.name, x + s / 2, y + artH + 3, s - 6, 11, 3);
       }
 
       if (t.status === "hit")    { ctx.fillStyle = "rgba(26,14,12,.5)"; ctx.fillRect(x, y, s, s); burst(ctx, x + s/2, y + s/2, s * .74); }
@@ -1257,7 +1384,7 @@ $("#expBoard").addEventListener("click", async () => {
         const ids = (S.assigns.get(t.id) || []).slice(0, 3);
         ids.forEach((id, k) => {
           const m = S.members.get(id);
-          disc(ctx, avs.get(id), x + 16 + k * 15, y + s - 16, 12, (m?.display_name || "?")[0].toUpperCase());
+          disc(ctx, avs.get(id), x + 16 + k * 15, y + s - 16, 12, nameOf(m)[0].toUpperCase());
         });
         const extra = (S.assigns.get(t.id) || []).length - 3;
         if (extra > 0) {
@@ -1285,7 +1412,7 @@ function crewRows() {
   }
   return [...S.members.values()]
     .sort((a, b) => (byMember.get(b.id)?.length || 0) - (byMember.get(a.id)?.length || 0)
-                 || a.display_name.localeCompare(b.display_name))
+                 || nameOf(a).localeCompare(nameOf(b)))
     .map((m) => ({
       m,
       tiles: (byMember.get(m.id) || []).filter(Boolean).sort((a, b) => a.pos - b.pos),
@@ -1296,8 +1423,8 @@ function crewRows() {
 $("#copyCrew").addEventListener("click", async () => {
   const lines = crewRows().map(({ m, tiles, cols }) =>
     tiles.length
-      ? `**${m.display_name}** — ${tiles.map((t) => `\`${coordOf(t.pos, cols)}\` ${t.name || "unnamed"}`).join(", ")}`
-      : `**${m.display_name}** — *idle*`);
+      ? `**${nameOf(m)}** — ${tiles.map((t) => `\`${coordOf(t.pos, cols)}\` ${t.name || "unnamed"}`).join(", ")}`
+      : `**${nameOf(m)}** — *idle*`);
   const hits = S.tiles.filter((t) => t.status === "hit").length;
   const spl  = S.tiles.filter((t) => t.status === "splash").length;
   const text = `__**${CFG.title || "Crew"}**__ · ${hits} hit / ${spl} splash / ${S.tiles.length - hits - spl} open · ${stamp()}\n\n${lines.join("\n")}`;
@@ -1326,12 +1453,12 @@ $("#expCrew").addEventListener("click", async () => {
       ctx.strokeStyle = C.line; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(PAD, y + .5); ctx.lineTo(W - PAD, y + .5); ctx.stroke();
 
-      disc(ctx, avs.get(m.id), PAD + 22, y + ROW / 2, 22, (m.display_name || "?")[0].toUpperCase());
+      disc(ctx, avs.get(m.id), PAD + 22, y + ROW / 2, 22, nameOf(m)[0].toUpperCase());
 
       ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
       ctx.font = '600 19px "Barlow Condensed", sans-serif';
       ctx.fillStyle = C.bone;
-      ctx.fillText(m.display_name.toUpperCase() + (m.is_admin ? " ★" : ""), PAD + 58, y + 30);
+      ctx.fillText(nameOf(m).toUpperCase() + (m.is_admin ? " ★" : ""), PAD + 58, y + 30);
 
       ctx.font = '400 11px "Silkscreen", monospace';
       if (!tiles.length) {
