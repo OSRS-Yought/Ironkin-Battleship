@@ -18,9 +18,13 @@ window.BB_CONFIG = {
   team: "Apey's Apes",
 
   // What happens when someone signs in who is NOT on the crew roster.
-  //   false          -> polite "Not aboard" screen (recommended while you
-  //                     are still adding people to the roster)
+  //   false          -> polite "Not aboard" screen
   //   true           -> redirect them to the video
   //   "https://..."  -> redirect them wherever you like
   rickroll: true,
+
+  // Where the live board lives. Setup -> Sync from the clan site reads this
+  // page and renames tiles in place. It only applies if what it finds is the
+  // same 100 items you already have, so a hidden or restyled board is a no-op.
+  boardSourceUrl: "https://ironkinclan.com/battleship-bingo",
 };

@@ -615,6 +615,29 @@
       </div>
 
       <div class="a-card">
+        <div class="a-h">Sync from the clan site</div>
+        <p class="a-p">
+          Reads the live board straight off the event page and renames tiles in place.
+          It will only apply if what it finds is exactly the same 100 items you already
+          have, in some order — so while the board is hidden, or if the host restyles
+          the page, it refuses and changes nothing. Never rebuilds:
+          <strong>claims, hits, and splashes survive</strong>.
+        </p>
+        <div class="a-fields">
+          <div class="a-field" style="flex:1;min-width:260px">
+            <label class="a-lab" for="syncUrl">Board page</label>
+            <input class="a-in" id="syncUrl" style="width:100%" />
+          </div>
+          <button class="btn btn-gold" id="syncNow">Pull now</button>
+        </div>
+        <label class="cal-hint" style="display:flex;gap:8px;align-items:center;margin-top:12px;cursor:pointer">
+          <input type="checkbox" id="syncAuto" />
+          Re-check every 5 minutes while this tab is open
+        </label>
+        <div class="cal-hint" id="syncState" style="margin-top:10px;color:var(--mute)"></div>
+      </div>
+
+      <div class="a-card">
         <div class="a-h">Set tile names by position</div>
         <p class="a-p">
           Renames tiles in place, reading top-left to bottom-right, one line per tile.
@@ -834,6 +857,7 @@ async function start(user) {
     $("#meRole").textContent = "Admiral";
     $("#adminChip").classList.remove("hidden");
     $("#logChip").classList.remove("hidden");
+    initSync();
   }
 
   await loadAll();
@@ -1558,6 +1582,30 @@ $("#orderCopy").addEventListener("click", async () => {
   catch { console.log(text); toast("In the console", "bad"); }
 });
 
+// Writes names/qty onto tiles by position. Returns how many actually changed.
+async function applyNames(list, onProgress) {
+  const byPos = new Map(S.tiles.map((t) => [t.pos, t]));
+  const jobs = [];
+  for (let i = 0; i < Math.min(list.length, S.tiles.length); i++) {
+    const t = byPos.get(i);
+    if (!t) continue;
+    if (t.name === list[i].name && t.qty === list[i].qty) continue; // no-op
+    jobs.push({ id: t.id, name: list[i].name, qty: list[i].qty });
+  }
+  if (!jobs.length) return 0;
+
+  for (let i = 0; i < jobs.length; i += 10) {
+    const chunk = jobs.slice(i, i + 10);
+    const res = await Promise.all(chunk.map((j) =>
+      sb.from("tiles").update({ name: j.name, qty: j.qty }).eq("id", j.id)));
+    const bad = res.find((r) => r.error);
+    if (bad) throw bad.error;
+    onProgress?.((i + chunk.length) / jobs.length);
+  }
+  await loadAll();
+  return jobs.length;
+}
+
 $("#orderApply").addEventListener("click", async () => {
   const list = parseOrder($("#orderIn").value);
   if (!list.length) return toast("Paste the board order first", "bad");
@@ -1568,26 +1616,8 @@ $("#orderApply").addEventListener("click", async () => {
   $("#orderApply").disabled = true;
   $("#orderProg").style.display = "block";
   try {
-    const byPos = new Map(S.tiles.map((t) => [t.pos, t]));
-    const jobs = [];
-    for (let i = 0; i < Math.min(list.length, S.tiles.length); i++) {
-      const t = byPos.get(i);
-      if (!t) continue;
-      if (t.name === list[i].name && t.qty === list[i].qty) continue; // no-op
-      jobs.push({ id: t.id, name: list[i].name, qty: list[i].qty });
-    }
-    if (!jobs.length) { toast("Already matches"); return; }
-
-    for (let i = 0; i < jobs.length; i += 10) {
-      const chunk = jobs.slice(i, i + 10);
-      const res = await Promise.all(chunk.map((j) =>
-        sb.from("tiles").update({ name: j.name, qty: j.qty }).eq("id", j.id)));
-      const bad = res.find((r) => r.error);
-      if (bad) throw bad.error;
-      $("#orderBar").style.width = Math.round(((i + chunk.length) / jobs.length) * 100) + "%";
-    }
-    toast(`${jobs.length} tiles renamed`);
-    await loadAll();
+    const n = await applyNames(list, (f) => ($("#orderBar").style.width = Math.round(f * 100) + "%"));
+    toast(n ? `${n} tiles renamed` : "Already matches");
   } catch (e) { fail("Rename failed")(e); }
   finally {
     $("#orderApply").disabled = false;
@@ -1595,6 +1625,123 @@ $("#orderApply").addEventListener("click", async () => {
     $("#orderBar").style.width = "0%";
   }
 });
+
+// ---------------- sync from the clan site ----------------
+// The event page is on another origin but does not block cross-origin reads,
+// so the browser can fetch it directly. What it contains varies: while the
+// board is hidden there are no tiles at all. Everything below is written so
+// that "no usable board found" leaves the tracker untouched.
+
+const SYNC_KEY = "bb.sync.auto";
+let syncTimer = null;
+
+const normName = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+async function knownNames() {
+  const seed = await fetch("./tiles.seed.json?t=" + Date.now(), { cache: "no-store" }).then((r) => r.json());
+  return (seed.tiles || []).map((t) => t.name);
+}
+
+// Turn one tile element's text into { name, qty }.
+function readTile(node) {
+  const parts = node.innerText.split("\n").map((x) => x.trim()).filter(Boolean);
+  let qty = 1;
+  const keep = [];
+  for (const p of parts) {
+    const m = p.match(/^[x×]\s*(\d+)$/i);
+    if (m) qty = parseInt(m[1], 10); else keep.push(p);
+  }
+  return { name: keep.join(" ").replace(/\s+/g, " ").trim(), qty };
+}
+
+// Look for a container whose children are the board. Validate against the
+// names we already have rather than against the site's markup, which we
+// do not control and cannot rely on.
+function findBoard(doc, want, known) {
+  const kn = new Set(known.map(normName));
+  const candidates = [];
+  doc.querySelectorAll("*").forEach((e) => {
+    if (e.children.length === want) candidates.push(e);
+  });
+  for (const el of candidates) {
+    const tiles = [...el.children].map(readTile);
+    const hits = tiles.filter((t) => kn.has(normName(t.name))).length;
+    if (hits >= want * 0.9) return tiles;
+  }
+  return null;
+}
+
+// Refuse anything that is not exactly our 100 items rearranged.
+function validate(tiles, known) {
+  if (!tiles || tiles.length !== known.length) return "no board found on that page";
+  const a = tiles.map((t) => normName(t.name)).sort();
+  const b = known.map(normName).sort();
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return "the tiles on that page are not the ones on this board";
+  return null;
+}
+
+function syncSay(msg, bad) {
+  const el = $("#syncState");
+  if (!el) return;
+  el.textContent = `${new Date().toLocaleTimeString()} — ${msg}`;
+  el.style.color = bad ? "var(--lava)" : "var(--mute)";
+}
+
+async function pullBoard(quiet) {
+  const url = $("#syncUrl").value.trim();
+  if (!url) return syncSay("no board page set", true);
+  if (!S.tiles.length) return syncSay("build the board first", true);
+
+  try {
+    const html = await fetch(url, { cache: "no-store" }).then((r) => {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.text();
+    });
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const known = await knownNames();
+    const tiles = findBoard(doc, S.tiles.length, known);
+
+    const why = validate(tiles, known);
+    if (why) { syncSay(why + " — nothing changed", true); return; }
+
+    // canonicalise to our exact spelling, so a stray apostrophe does not churn
+    const canon = new Map(known.map((n) => [normName(n), n]));
+    const list = tiles.map((t) => ({ name: canon.get(normName(t.name)) || t.name, qty: t.qty }));
+
+    const n = await applyNames(list);
+    syncSay(n ? `pulled — ${n} tiles changed` : "pulled — already up to date");
+    if (n && !quiet) toast(`${n} tiles updated from the clan site`);
+    if (n && quiet) toast(`Board changed — ${n} tiles updated`);
+  } catch (e) {
+    syncSay(e.message || String(e), true);
+  }
+}
+
+$("#syncNow").addEventListener("click", () => pullBoard(false));
+
+$("#syncAuto").addEventListener("change", () => {
+  const on = $("#syncAuto").checked;
+  localStorage.setItem(SYNC_KEY, on ? "1" : "0");
+  clearInterval(syncTimer);
+  if (on) {
+    syncTimer = setInterval(() => pullBoard(true), 5 * 60 * 1000);
+    pullBoard(true);
+    syncSay("auto-pull on — every 5 minutes");
+  } else {
+    syncSay("auto-pull off");
+  }
+});
+
+function initSync() {
+  if (!S.me?.is_admin) return;
+  $("#syncUrl").value = CFG.boardSourceUrl || "";
+  if (localStorage.getItem(SYNC_KEY) === "1" && CFG.boardSourceUrl) {
+    $("#syncAuto").checked = true;
+    clearInterval(syncTimer);
+    syncTimer = setInterval(() => pullBoard(true), 5 * 60 * 1000);
+    syncSay("auto-pull on — every 5 minutes");
+  }
+}
 
 // ---------------- OSRS Wiki sprites ----------------
 
