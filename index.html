@@ -173,22 +173,26 @@
   }
 
   .pins{
-    position:absolute;left:3px;bottom:3px;
-    display:flex;
+    position:absolute;right:4px;bottom:38%;
+    display:flex;flex-direction:row-reverse;
+    pointer-events:none;
   }
   .pin{
-    width:20px;height:20px;border-radius:50%;
-    border:1.5px solid var(--abyss);
+    width:30px;height:30px;border-radius:50%;
+    border:2px solid var(--abyss);
+    box-shadow:0 0 0 1.5px var(--gold-dim);
     background:var(--hull-2);
-    margin-right:-7px;
+    margin-left:-9px;
     object-fit:cover;
   }
   .pin-more{
-    width:20px;height:20px;border-radius:50%;
-    border:1.5px solid var(--abyss);background:var(--gold);color:#160E02;
-    font-family:var(--data);font-size:8px;
+    width:30px;height:30px;border-radius:50%;
+    border:2px solid var(--abyss);
+    box-shadow:0 0 0 1.5px var(--gold-dim);
+    background:var(--gold);color:#160E02;
+    font-family:var(--data);font-size:9px;
     display:flex;align-items:center;justify-content:center;
-    margin-right:-7px;
+    margin-left:-9px;
   }
 
   /* status overlays */
@@ -359,6 +363,8 @@
     }
     .panel.panel-idle{display:none}
     .grid{grid-template-columns:18px repeat(var(--cols,10), 56px)}
+    .pin,.pin-more{width:21px;height:21px;margin-left:-7px}
+    .pin-more{font-size:8px}
     .tally-cell{min-width:52px;padding:5px 9px}
     .brand-title{font-size:18px}
   }
@@ -1381,20 +1387,30 @@ $("#expBoard").addEventListener("click", async () => {
       }
 
       if (t.status === "open") {
-        const ids = (S.assigns.get(t.id) || []).slice(0, 3);
-        ids.forEach((id, k) => {
+        const all = S.assigns.get(t.id) || [];
+        const shown = all.slice(0, 3);
+        const extra = all.length - shown.length;
+        const R = 15, STEP = 21;
+        const px = x + s - 5 - R, py = y + artH - 10;
+
+        shown.forEach((id, k) => {
           const m = S.members.get(id);
-          disc(ctx, avs.get(id), x + 16 + k * 15, y + s - 16, 12, nameOf(m)[0].toUpperCase());
+          const cx = px - k * STEP;
+          disc(ctx, avs.get(id), cx, py, R, nameOf(m)[0].toUpperCase());
+          ctx.beginPath(); ctx.arc(cx, py, R + 1.5, 0, Math.PI * 2);
+          ctx.lineWidth = 1.5; ctx.strokeStyle = "#8A6428"; ctx.stroke();
         });
-        const extra = (S.assigns.get(t.id) || []).length - 3;
+
         if (extra > 0) {
-          const px = x + 16 + 3 * 15;
-          ctx.beginPath(); ctx.arc(px, y + s - 16, 12, 0, Math.PI * 2);
+          const cx = px - shown.length * STEP;
+          ctx.beginPath(); ctx.arc(cx, py, R, 0, Math.PI * 2);
           ctx.fillStyle = C.gold; ctx.fill();
           ctx.strokeStyle = C.abyss; ctx.lineWidth = 2.5; ctx.stroke();
-          ctx.fillStyle = "#160E02"; ctx.font = '400 9px "Silkscreen", monospace';
+          ctx.beginPath(); ctx.arc(cx, py, R + 1.5, 0, Math.PI * 2);
+          ctx.lineWidth = 1.5; ctx.strokeStyle = "#8A6428"; ctx.stroke();
+          ctx.fillStyle = "#160E02"; ctx.font = '400 10px "Silkscreen", monospace';
           ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillText("+" + extra, px, y + s - 15);
+          ctx.fillText("+" + extra, cx, py + 1);
         }
       }
     }
