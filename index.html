@@ -162,10 +162,11 @@
     overflow:hidden;
   }
   .tile-qty{
-    position:absolute;top:3px;right:3px;
-    font-family:var(--data);font-size:10px;
+    position:absolute;top:4px;right:4px;
+    font-family:var(--data);font-size:16px;
     background:var(--gold);color:#160E02;
-    padding:2px 4px;line-height:1;
+    padding:3px 5px;line-height:1;
+    box-shadow:0 1px 4px rgba(0,0,0,.5);
   }
   .tile-coord{
     position:absolute;top:4px;left:5px;
@@ -524,8 +525,15 @@
           In Discord: <em>Settings → Advanced → Developer Mode</em>, then right-click a
           member → <em>Copy User ID</em>. One ID per line.
         </p>
-        <textarea class="note" id="allowIn" placeholder="123456789012345678&#10;987654321098765432" style="min-height:66px"></textarea>
+        <textarea class="note" id="allowIn" placeholder="123456789012345678 Gimlin&#10;987654321098765432 Zezima&#10;456789012345678901" style="min-height:78px"></textarea>
         <div style="margin-top:8px"><button class="btn" id="allowAdd">Add to roster</button></div>
+        <p class="a-p" style="margin:12px 0 0">
+          Put a name after the ID and that person becomes assignable straight away,
+          before they have ever opened the site — they get a Discord default avatar
+          and show up in every "add someone" list. When they do sign in, their real
+          name and avatar take over and <strong>every tile they were already on stays
+          assigned</strong>. ID with no name just grants access.
+        </p>
         <div class="crew" id="allowList" style="margin-top:16px"></div>
       </div>
 
@@ -616,29 +624,49 @@ sb.auth.getSession().then(({ data }) => {
   if (data.session?.user) start(data.session.user);
 });
 
+// Discord's default avatar for an account, derivable from the ID alone.
+// Placeholders wear this until the real person signs in and brings their own.
+function defaultAvatar(discordId) {
+  let i = 0;
+  try { i = Number((BigInt(discordId) >> 22n) % 6n); } catch { i = 0; }
+  return `https://cdn.discordapp.com/embed/avatars/${i}.png`;
+}
+
+const isRls = (e) => e && (e.code === "42501" || /row-level security/i.test(e.message || ""));
+
 let started = false;
 async function start(user) {
   if (started) return;
   started = true;
 
   const meta = user.user_metadata || {};
-  const row = {
-    id: user.id,
-    discord_id: meta.provider_id || meta.sub || null,
+  const discord_id = meta.provider_id || meta.sub || null;
+  const patch = {
+    auth_id: user.id,
+    discord_id,
     username: meta.user_name || meta.name || meta.full_name || "unknown",
     display_name: meta.custom_claims?.global_name || meta.full_name || meta.name || meta.user_name || "Unknown",
     avatar_url: meta.avatar_url || meta.picture || null,
   };
 
-  const { error } = await sb.from("members").upsert(row, { onConflict: "id" });
-  if (error) {
-    // 42501 = row-level security refused the insert, i.e. not on the allowlist
-    if (error.code === "42501" || /row-level security/i.test(error.message || "")) return denied(row);
-    return fail("Could not register you")(error);
-  }
+  // Is there already a row for this Discord account? It may be a placeholder
+  // an admin created, in which case we adopt it and keep its assignments.
+  const found = await sb.from("members").select("*").eq("discord_id", discord_id).maybeSingle();
+  if (isRls(found.error)) return denied(patch);
 
-  const { data: mine } = await sb.from("members").select("*").eq("id", user.id).single();
-  S.me = mine || row;
+  let mine;
+  if (found.data) {
+    const { data, error } = await sb.from("members").update(patch).eq("id", found.data.id).select().single();
+    if (isRls(error)) return denied(patch);
+    if (error) return fail("Could not sign you in")(error);
+    mine = data;
+  } else {
+    const { data, error } = await sb.from("members").insert({ ...patch }).select().single();
+    if (isRls(error)) return denied(patch);
+    if (error) return fail("Could not register you")(error);
+    mine = data;
+  }
+  S.me = mine;
 
   $("#gate").classList.add("hidden");
   $("#app").classList.remove("hidden");
@@ -1053,7 +1081,7 @@ $("#buildBtn").addEventListener("click", async () => {
 
     let names = [];
     try {
-      const seed = await fetch("./tiles.seed.json").then((r) => r.json());
+      const seed = await fetch("./tiles.seed.json?t=" + Date.now(), { cache: "no-store" }).then((r) => r.json());
       if (seed.tiles?.length === cols * rows) names = seed.tiles;
     } catch { /* seed file is optional */ }
 
@@ -1178,7 +1206,7 @@ async function spriteDataUrl(url) {
 }
 
 async function iconMap() {
-  const seed = await fetch("./tiles.seed.json").then((r) => r.json());
+  const seed = await fetch("./tiles.seed.json?t=" + Date.now(), { cache: "no-store" }).then((r) => r.json());
   const m = new Map();
   for (const t of seed.tiles || []) if (t.icon) m.set(t.name, t.icon);
   return m;
@@ -1193,6 +1221,9 @@ $("#wikiBtn").addEventListener("click", async () => {
   const misses = [];
   try {
     const map = await iconMap();
+    if (!map.size) {
+      throw new Error("tiles.seed.json has no \"icon\" fields — the browser is serving an old copy of it");
+    }
     let done = 0;
 
     const work = S.tiles.map((t) => async () => {
@@ -1218,6 +1249,7 @@ $("#wikiBtn").addEventListener("click", async () => {
       while (queue.length) await queue.shift()();
     }));
 
+    if (misses.length) console.table(misses.map(([t, why]) => ({ tile: t.name, why })));
     toast(`${S.tiles.length - misses.length} icons updated` + (misses.length ? `, ${misses.length} skipped` : ""));
     await loadAll();
   } catch (e) {
@@ -1290,8 +1322,9 @@ function renderRsn() {
       const who = el("div");
       who.style.cssText = "flex:1;min-width:0";
       who.appendChild(el("div", "crew-name", m.display_name));
-      const tag = el("div", null, "discord");
-      tag.style.cssText = "font-family:var(--data);font-size:8px;letter-spacing:.12em;color:var(--mute)";
+      const tag = el("div", null, m.auth_id ? "signed in" : "placeholder · has not signed in");
+      tag.style.cssText = "font-family:var(--data);font-size:8px;letter-spacing:.12em;color:" +
+        (m.auth_id ? "var(--mute)" : "var(--gold-dim)");
       who.appendChild(tag);
       row.appendChild(who);
 
@@ -1337,13 +1370,38 @@ async function renderAllow() {
 }
 
 $("#allowAdd").addEventListener("click", async () => {
-  const ids = $("#allowIn").value.split(/\s+/).map((s) => s.trim()).filter((s) => /^\d{15,25}$/.test(s));
-  if (!ids.length) return toast("No valid Discord IDs found", "bad");
-  const { error } = await sb.from("allowlist").insert(ids.map((id) => ({ discord_id: id, note: "added via app" })));
-  if (error) return fail("Could not add")(error);
+  const lines = $("#allowIn").value.split("\n").map((l) => l.trim()).filter(Boolean);
+  const entries = [];
+  for (const l of lines) {
+    const m = l.match(/^(\d{15,25})\s*(.*)$/);
+    if (m) entries.push({ id: m[1], name: (m[2] || "").trim() });
+  }
+  if (!entries.length) return toast("No valid Discord IDs found", "bad");
+
+  const a = await sb.from("allowlist")
+    .upsert(entries.map((e) => ({ discord_id: e.id, note: e.name || "added via app" })), { onConflict: "discord_id" });
+  if (a.error) return fail("Could not add to roster")(a.error);
+
+  // Named entries also get a placeholder member row, so they are assignable now.
+  const named = entries.filter((e) => e.name);
+  if (named.length) {
+    const existing = await sb.from("members").select("discord_id").in("discord_id", named.map((e) => e.id));
+    const have = new Set((existing.data || []).map((r) => r.discord_id));
+    const rows = named.filter((e) => !have.has(e.id)).map((e) => ({
+      discord_id: e.id,
+      username: e.name,
+      display_name: e.name,
+      avatar_url: defaultAvatar(e.id),
+    }));
+    if (rows.length) {
+      const { error } = await sb.from("members").insert(rows);
+      if (error) return fail("Roster saved, but placeholders failed")(error);
+    }
+  }
+
   $("#allowIn").value = "";
-  toast(`${ids.length} added to the roster`);
-  renderAllow();
+  toast(`${entries.length} on the roster` + (named.length ? `, ${named.length} assignable now` : ""));
+  renderAllow(); renderRsn(); await loadAll();
 });
 
 // ---------------- exports ----------------
@@ -1534,9 +1592,11 @@ $("#expBoard").addEventListener("click", async () => {
       ctx.fillText(coordOf(t.pos, cols), x + 5, y + 5);
 
       if (t.qty > 1) {
-        ctx.textAlign = "right";
-        ctx.fillStyle = C.gold; ctx.fillRect(x + s - 26, y + 4, 22, 13);
-        ctx.fillStyle = "#160E02"; ctx.fillText("x" + t.qty, x + s - 6, y + 6);
+        const bw = 20 + String(t.qty).length * 9;
+        ctx.fillStyle = C.gold; ctx.fillRect(x + s - 5 - bw, y + 5, bw, 21);
+        ctx.font = '400 15px "Silkscreen", monospace';
+        ctx.textAlign = "right"; ctx.textBaseline = "top";
+        ctx.fillStyle = "#160E02"; ctx.fillText("x" + t.qty, x + s - 10, y + 9);
       }
 
       if (t.status === "open") {
