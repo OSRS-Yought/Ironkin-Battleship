@@ -7,8 +7,8 @@
 // ---------------------------------------------------------------------
 
 window.BB_CONFIG = {
-  supabaseUrl: "https://YOUR-PROJECT-REF.supabase.co",
-  supabaseAnonKey: "YOUR-ANON-PUBLIC-KEY",
+  supabaseUrl: "https://pzxeauhieamxnoanlkjm.supabase.co",
+  supabaseAnonKey: "sb_publishable_BeJLYnRf6MIlu2b8_CDcPA_2SdbOEU6",
 
   // Shown in the header and the browser tab.
   title: "Battleship Bingo",
