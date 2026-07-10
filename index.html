@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Battleship Bingo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<script src="./config.js"></script>
+<style>
+  :root{
+    --abyss:#080D12;
+    --deep:#0E1820;
+    --hull:#152430;
+    --hull-2:#1B2E3B;
+    --line:#26404F;
+    --line-2:#3B6076;
+    --gold:#F2A33C;
+    --gold-dim:#8A6428;
+    --bone:#E7E0D2;
+    --mute:#7B8D99;
+    --hit:#E0453A;
+    --splash:#57ACD9;
+
+    --disp:"Barlow Condensed", system-ui, sans-serif;
+    --body:"Barlow", system-ui, sans-serif;
+    --data:"Silkscreen", ui-monospace, monospace;
+
+    --panel-w:380px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1200px 700px at 70% -10%, #14293A 0%, transparent 60%),
+      var(--abyss);
+    color:var(--bone);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit;cursor:pointer}
+  input,select,textarea{font:inherit}
+
+  /* ---------------- shell ---------------- */
+
+  .shell{display:flex;flex-direction:column;min-height:100%}
+
+  .topbar{
+    display:flex;align-items:center;gap:16px;
+    padding:14px 20px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(21,36,48,.9), rgba(8,13,18,.6));
+    position:sticky;top:0;z-index:30;
+    backdrop-filter:blur(8px);
+  }
+  .brand{display:flex;flex-direction:column;line-height:1}
+  .brand-title{
+    font-family:var(--disp);font-weight:700;font-size:24px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--gold);
+  }
+  .brand-sub{
+    font-family:var(--data);font-size:9px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--mute);margin-top:5px;
+  }
+  .topbar-spacer{flex:1}
+
+  .tally{display:flex;gap:2px;align-items:stretch}
+  .tally-cell{
+    padding:6px 14px;border:1px solid var(--line);
+    background:rgba(8,13,18,.5);
+    display:flex;flex-direction:column;align-items:center;min-width:64px;
+  }
+  .tally-n{font-family:var(--data);font-size:16px;line-height:1.2}
+  .tally-l{font-family:var(--data);font-size:8px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase;margin-top:4px}
+  .tally-hit .tally-n{color:var(--hit)}
+  .tally-splash .tally-n{color:var(--splash)}
+  .tally-open .tally-n{color:var(--gold)}
+
+  .who{display:flex;align-items:center;gap:10px}
+  .who-av{width:32px;height:32px;border-radius:2px;border:1px solid var(--line-2)}
+  .who-name{font-family:var(--disp);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:14px}
+  .who-role{font-family:var(--data);font-size:8px;color:var(--gold);letter-spacing:.12em}
+
+  .btn{
+    font-family:var(--disp);font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+    font-size:13px;padding:9px 16px;
+    background:var(--hull);border:1px solid var(--line-2);color:var(--bone);
+    transition:background .12s, border-color .12s;
+  }
+  .btn:hover{background:var(--hull-2);border-color:var(--gold-dim)}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .btn-gold{background:var(--gold);border-color:var(--gold);color:#160E02}
+  .btn-gold:hover{background:#FFB851;border-color:#FFB851}
+  .btn-hit{border-color:#5E241F;color:#F0837A}
+  .btn-hit:hover{background:#2A1210;border-color:var(--hit)}
+  .btn-splash{border-color:#1F4459;color:#8FCBE8}
+  .btn-splash:hover{background:#10222D;border-color:var(--splash)}
+  .btn-sm{padding:5px 10px;font-size:11px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+
+  /* ---------------- controls ---------------- */
+
+  .controls{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:12px 20px;border-bottom:1px solid var(--line);
+  }
+  .chip{
+    font-family:var(--data);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+    padding:7px 11px;background:transparent;border:1px solid var(--line);color:var(--mute);
+  }
+  .chip:hover{color:var(--bone);border-color:var(--line-2)}
+  .chip[aria-pressed="true"]{color:var(--gold);border-color:var(--gold-dim);background:rgba(242,163,60,.07)}
+  .controls-spacer{flex:1}
+
+  /* ---------------- board ---------------- */
+
+  .board-scroll{flex:1;overflow:auto;padding:22px 20px 40px}
+  .grid{
+    display:grid;
+    grid-template-columns:22px repeat(var(--cols,10), minmax(58px, 1fr));
+    gap:4px;
+    min-width:min-content;
+    max-width:1180px;
+    margin:0 auto;
+  }
+  .gut{
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--data);font-size:10px;color:var(--line-2);
+    user-select:none;
+  }
+  .gut-col{height:20px}
+
+  .tile{
+    position:relative;
+    aspect-ratio:1/1;
+    background:var(--hull);
+    border:1px solid var(--line);
+    padding:0;
+    display:block;
+    overflow:hidden;
+    transition:border-color .12s, transform .12s;
+  }
+  .tile:hover{border-color:var(--line-2);transform:translateY(-1px);z-index:2}
+  .tile:focus-visible{outline:2px solid var(--gold);outline-offset:1px;z-index:3}
+  .tile[data-sel="1"]{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+
+  .tile-art{
+    position:absolute;inset:0;
+    background-size:cover;background-position:center;
+    image-rendering:auto;
+  }
+  .tile-name{
+    position:absolute;left:0;right:0;bottom:0;
+    font-family:var(--disp);font-weight:600;font-size:10px;line-height:1.1;
+    letter-spacing:.02em;
+    padding:12px 3px 3px;
+    text-align:center;
+    background:linear-gradient(180deg, transparent, rgba(8,13,18,.92) 55%);
+    color:var(--bone);
+    overflow:hidden;
+    max-height:60%;
+  }
+  .tile-qty{
+    position:absolute;top:3px;right:3px;
+    font-family:var(--data);font-size:9px;
+    background:var(--gold);color:#160E02;
+    padding:1px 3px;line-height:1;
+  }
+  .tile-coord{
+    position:absolute;top:3px;left:4px;
+    font-family:var(--data);font-size:8px;color:rgba(231,224,210,.35);
+  }
+
+  .pins{
+    position:absolute;left:3px;bottom:3px;
+    display:flex;
+  }
+  .pin{
+    width:20px;height:20px;border-radius:50%;
+    border:1.5px solid var(--abyss);
+    background:var(--hull-2);
+    margin-right:-7px;
+    object-fit:cover;
+  }
+  .pin-more{
+    width:20px;height:20px;border-radius:50%;
+    border:1.5px solid var(--abyss);background:var(--gold);color:#160E02;
+    font-family:var(--data);font-size:8px;
+    display:flex;align-items:center;justify-content:center;
+    margin-right:-7px;
+  }
+
+  /* status overlays */
+  .tile[data-status="hit"] .tile-art,
+  .tile[data-status="splash"] .tile-art{filter:saturate(.25) brightness(.42)}
+
+  .stamp{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    pointer-events:none;
+  }
+  .stamp svg{width:74%;height:74%}
+  .stamp-label{
+    position:absolute;bottom:4px;left:0;right:0;text-align:center;
+    font-family:var(--data);font-size:8px;letter-spacing:.16em;
+  }
+  .tile[data-status="hit"]{border-color:#5E241F;background:#1A0E0C}
+  .tile[data-status="hit"] .stamp-label{color:var(--hit)}
+  .tile[data-status="splash"]{border-color:#1F4459;background:#0B1A22}
+  .tile[data-status="splash"] .stamp-label{color:var(--splash)}
+  .tile[data-status="hit"] .tile-name,
+  .tile[data-status="splash"] .tile-name{display:none}
+
+  @keyframes fire{
+    0%{transform:scale(.4);opacity:0}
+    45%{transform:scale(1.14);opacity:1}
+    100%{transform:scale(1);opacity:1}
+  }
+  .stamp-fresh svg{animation:fire .45s cubic-bezier(.2,.9,.25,1)}
+
+  /* ---------------- panel ---------------- */
+
+  .layout{display:flex;flex:1;min-height:0}
+  .panel{
+    width:var(--panel-w);flex:none;
+    border-left:1px solid var(--line);
+    background:linear-gradient(180deg, var(--deep), var(--abyss));
+    padding:20px;overflow:auto;
+  }
+  .panel-empty{
+    color:var(--mute);font-family:var(--data);font-size:10px;
+    letter-spacing:.12em;line-height:2;text-transform:uppercase;
+  }
+
+  .p-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}
+  .p-art{width:64px;height:64px;flex:none;border:1px solid var(--line);background-size:cover;background-position:center}
+  .p-coord{font-family:var(--data);font-size:9px;color:var(--gold);letter-spacing:.14em}
+  .p-name{font-family:var(--disp);font-weight:700;font-size:21px;line-height:1.1;text-transform:uppercase;letter-spacing:.03em;margin-top:5px}
+  .p-qty{font-family:var(--data);font-size:9px;color:var(--mute);margin-top:6px;letter-spacing:.1em}
+
+  .p-sec{margin:22px 0 0}
+  .p-sec-h{
+    font-family:var(--data);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--mute);padding-bottom:7px;border-bottom:1px solid var(--line);margin-bottom:11px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+
+  .crew{display:flex;flex-direction:column;gap:5px}
+  .crew-row{
+    display:flex;align-items:center;gap:9px;
+    padding:6px;border:1px solid transparent;
+  }
+  .crew-row:hover{border-color:var(--line);background:rgba(255,255,255,.02)}
+  .crew-av{width:26px;height:26px;border-radius:50%;border:1px solid var(--line-2);object-fit:cover;flex:none}
+  .crew-name{flex:1;font-size:14px;font-weight:500}
+  .crew-x{
+    background:none;border:none;color:var(--mute);padding:3px 6px;
+    font-family:var(--data);font-size:11px;
+  }
+  .crew-x:hover{color:var(--hit)}
+  .crew-none{color:var(--mute);font-size:13px;font-style:italic;padding:4px 0}
+
+  .add-row{display:flex;gap:6px;margin-top:10px}
+  .sel{
+    flex:1;background:var(--hull);border:1px solid var(--line);color:var(--bone);
+    padding:8px;font-size:13px;
+  }
+  .sel:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+
+  .fire-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .fire-row .btn{width:100%;justify-content:center}
+
+  .note{
+    width:100%;min-height:70px;resize:vertical;
+    background:var(--hull);border:1px solid var(--line);color:var(--bone);
+    padding:9px;font-size:13px;
+  }
+  .note:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+
+  .resolved-by{font-family:var(--data);font-size:9px;color:var(--mute);letter-spacing:.1em;margin-top:9px;line-height:1.8}
+
+  /* ---------------- roster ---------------- */
+
+  .roster{max-width:900px;margin:0 auto;padding:24px 20px 60px}
+  .r-row{
+    display:flex;gap:14px;align-items:flex-start;
+    padding:14px 0;border-bottom:1px solid var(--line);
+  }
+  .r-av{width:44px;height:44px;border-radius:2px;border:1px solid var(--line-2);flex:none;object-fit:cover}
+  .r-name{font-family:var(--disp);font-weight:600;font-size:18px;text-transform:uppercase;letter-spacing:.05em}
+  .r-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .r-tag{
+    font-family:var(--data);font-size:9px;letter-spacing:.08em;
+    border:1px solid var(--line);padding:4px 7px;color:var(--bone);
+    background:var(--hull);
+  }
+  .r-tag[data-status="hit"]{border-color:#5E241F;color:var(--hit)}
+  .r-tag[data-status="splash"]{border-color:#1F4459;color:var(--splash)}
+  .r-idle{font-family:var(--data);font-size:9px;color:var(--mute);letter-spacing:.1em;margin-top:9px}
+
+  /* ---------------- admin ---------------- */
+
+  .admin{
+    max-width:760px;margin:0 auto;padding:24px 20px 60px;
+    display:flex;flex-direction:column;gap:26px;
+  }
+  .a-card{border:1px solid var(--line);background:var(--deep);padding:18px}
+  .a-h{font-family:var(--disp);font-weight:700;font-size:17px;text-transform:uppercase;letter-spacing:.08em;color:var(--gold)}
+  .a-p{color:var(--mute);font-size:13px;line-height:1.6;margin:8px 0 14px}
+  .a-fields{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .a-field{display:flex;flex-direction:column;gap:5px}
+  .a-lab{font-family:var(--data);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+  .a-in{background:var(--hull);border:1px solid var(--line);color:var(--bone);padding:8px;width:88px;font-size:13px}
+  .a-danger{border-color:#5E241F}
+
+  .prog{
+    height:3px;background:var(--hull);margin-top:14px;display:none;
+  }
+  .prog-bar{height:100%;background:var(--gold);width:0%;transition:width .2s}
+
+  /* ---------------- gate ---------------- */
+
+  .gate{
+    min-height:100vh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:26px;padding:30px;text-align:center;
+  }
+  .gate-title{
+    font-family:var(--disp);font-weight:700;font-size:clamp(38px,8vw,76px);
+    letter-spacing:.14em;text-transform:uppercase;color:var(--gold);line-height:.94;
+  }
+  .gate-sub{font-family:var(--data);font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--mute)}
+  .gate-grid{
+    display:grid;grid-template-columns:repeat(6,26px);gap:4px;opacity:.5;
+  }
+  .gate-cell{aspect-ratio:1;border:1px solid var(--line)}
+  .gate-cell[data-x="1"]{border-color:#5E241F;background:#1A0E0C}
+  .gate-cell[data-x="2"]{border-color:#1F4459;background:#0B1A22}
+
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+    background:var(--hull);border:1px solid var(--line-2);
+    padding:11px 18px;font-family:var(--data);font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;z-index:100;
+    opacity:0;pointer-events:none;transition:opacity .2s;
+  }
+  .toast[data-on="1"]{opacity:1}
+  .toast[data-kind="bad"]{border-color:var(--hit);color:#F0837A}
+
+  .hidden{display:none !important}
+
+  @media (max-width:900px){
+    :root{--panel-w:100%}
+    .layout{flex-direction:column}
+    .panel{
+      position:fixed;left:0;right:0;bottom:0;top:auto;
+      max-height:72vh;border-left:none;border-top:1px solid var(--gold-dim);
+      z-index:40;box-shadow:0 -20px 50px rgba(0,0,0,.6);
+    }
+    .panel.panel-idle{display:none}
+    .grid{grid-template-columns:18px repeat(var(--cols,10), 56px)}
+    .tally-cell{min-width:52px;padding:5px 9px}
+    .brand-title{font-size:18px}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ sign-in gate ============ -->
+<div class="gate" id="gate">
+  <div class="gate-grid" aria-hidden="true">
+    <div class="gate-cell"></div><div class="gate-cell" data-x="2"></div><div class="gate-cell"></div>
+    <div class="gate-cell" data-x="1"></div><div class="gate-cell"></div><div class="gate-cell"></div>
+    <div class="gate-cell"></div><div class="gate-cell"></div><div class="gate-cell" data-x="1"></div>
+    <div class="gate-cell" data-x="2"></div><div class="gate-cell"></div><div class="gate-cell"></div>
+  </div>
+  <div>
+    <div class="gate-title" id="gateTitle">Battleship<br>Bingo</div>
+    <div class="gate-sub" style="margin-top:16px" id="gateSub">Enemy waters</div>
+  </div>
+  <button class="btn btn-gold" id="loginBtn">Sign in with Discord</button>
+  <div class="gate-sub" id="gateNote" style="max-width:380px;line-height:2.2"></div>
+</div>
+
+<!-- ============ app ============ -->
+<div class="shell hidden" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-title" id="appTitle">Battleship Bingo</div>
+      <div class="brand-sub" id="appSub">Enemy waters</div>
+    </div>
+
+    <div class="topbar-spacer"></div>
+
+    <div class="tally">
+      <div class="tally-cell tally-hit"><div class="tally-n" id="tHit">0</div><div class="tally-l">Hits</div></div>
+      <div class="tally-cell tally-splash"><div class="tally-n" id="tSplash">0</div><div class="tally-l">Splash</div></div>
+      <div class="tally-cell tally-open"><div class="tally-n" id="tOpen">0</div><div class="tally-l">Open</div></div>
+    </div>
+
+    <div class="who">
+      <img class="who-av" id="meAv" alt="" />
+      <div>
+        <div class="who-name" id="meName">—</div>
+        <div class="who-role" id="meRole"></div>
+      </div>
+      <button class="btn btn-sm" id="logoutBtn">Out</button>
+    </div>
+  </header>
+
+  <nav class="controls">
+    <button class="chip" data-view="board" aria-pressed="true">Board</button>
+    <button class="chip" data-view="roster" aria-pressed="false">Crew</button>
+    <button class="chip hidden" data-view="admin" aria-pressed="false" id="adminChip">Setup</button>
+
+    <div style="width:18px"></div>
+
+    <button class="chip" data-filter="all" aria-pressed="true">All</button>
+    <button class="chip" data-filter="open" aria-pressed="false">Unfired</button>
+    <button class="chip" data-filter="hit" aria-pressed="false">Hits</button>
+    <button class="chip" data-filter="splash" aria-pressed="false">Splashes</button>
+    <button class="chip" data-filter="mine" aria-pressed="false">Mine</button>
+
+    <div class="controls-spacer"></div>
+    <span class="brand-sub" id="liveDot">● Live</span>
+  </nav>
+
+  <div class="layout">
+    <main class="board-scroll" id="boardView">
+      <div class="grid" id="grid"></div>
+    </main>
+
+    <main class="roster hidden" id="rosterView"></main>
+
+    <main class="admin hidden" id="adminView">
+      <div class="a-card">
+        <div class="a-h">Build the board</div>
+        <p class="a-p">
+          Upload the board screenshot. It gets sliced into one tile per cell, so each
+          tile carries its own art and can be shuffled without losing it.
+          Tile names load from <code>tiles.seed.json</code> when the count matches.
+          This replaces every existing tile and clears all claims.
+        </p>
+        <div class="a-fields">
+          <div class="a-field">
+            <label class="a-lab" for="inCols">Columns</label>
+            <input class="a-in" id="inCols" type="number" min="1" max="26" value="10" />
+          </div>
+          <div class="a-field">
+            <label class="a-lab" for="inRows">Rows</label>
+            <input class="a-in" id="inRows" type="number" min="1" max="30" value="10" />
+          </div>
+          <div class="a-field" style="flex:1">
+            <label class="a-lab" for="inImg">Board image</label>
+            <input id="inImg" type="file" accept="image/*" style="font-size:12px" />
+          </div>
+          <button class="btn btn-gold" id="buildBtn">Slice &amp; publish</button>
+        </div>
+        <div class="prog" id="prog"><div class="prog-bar" id="progBar"></div></div>
+      </div>
+
+      <div class="a-card">
+        <div class="a-h">Shuffle</div>
+        <p class="a-p">
+          Randomizes which task sits in which cell. Claims, hits, and splashes travel
+          with the task, not the cell. Run this after both teams have placed ships.
+        </p>
+        <button class="btn" id="shuffleBtn">Shuffle the board</button>
+      </div>
+
+      <div class="a-card a-danger">
+        <div class="a-h">Reset shots</div>
+        <p class="a-p">
+          Sets every tile back to unfired and removes all claims. The tiles and their
+          art stay. Use this if you want to run a second round on the same board.
+        </p>
+        <button class="btn btn-hit" id="resetBtn">Reset every tile to unfired</button>
+      </div>
+    </main>
+
+    <aside class="panel panel-idle" id="panel">
+      <div class="panel-empty">Select a tile<br>to log a shot</div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const CFG = window.BB_CONFIG || {};
+const $  = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+if (!CFG.supabaseUrl || CFG.supabaseUrl.includes("YOUR-PROJECT-REF")) {
+  $("#gateNote").textContent = "config.js is not filled in yet — add your Supabase URL and anon key.";
+  $("#loginBtn").disabled = true;
+}
+
+const sb = createClient(CFG.supabaseUrl || "https://x.supabase.co", CFG.supabaseAnonKey || "x");
+
+// ---------------- state ----------------
+
+const S = {
+  me: null,               // members row
+  board: { cols: 10, rows: 10 },
+  tiles: [],              // ordered by pos
+  members: new Map(),     // id -> member
+  assigns: new Map(),     // tile_id -> [member_id]
+  selected: null,         // tile id
+  view: "board",
+  filter: "all",
+  fresh: new Set(),       // tile ids that just changed status (for the burst animation)
+};
+
+const COL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const coordOf = (pos, cols) => COL_LETTERS[pos % cols] + (Math.floor(pos / cols) + 1);
+
+// ---------------- toast ----------------
+
+let toastTimer;
+function toast(msg, kind) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.dataset.kind = kind || "ok";
+  t.dataset.on = "1";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t.dataset.on = "0"), 2600);
+}
+const fail = (label) => (err) => { console.error(label, err); toast(label + ": " + (err.message || err), "bad"); };
+
+// ---------------- auth ----------------
+
+$("#loginBtn").addEventListener("click", () => {
+  sb.auth.signInWithOAuth({
+    provider: "discord",
+    options: { redirectTo: location.href.split("#")[0].split("?")[0] },
+  }).catch(fail("Sign-in failed"));
+});
+
+$("#logoutBtn").addEventListener("click", async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+sb.auth.onAuthStateChange((_evt, session) => {
+  if (session?.user) start(session.user);
+});
+
+sb.auth.getSession().then(({ data }) => {
+  if (data.session?.user) start(data.session.user);
+});
+
+let started = false;
+async function start(user) {
+  if (started) return;
+  started = true;
+
+  const meta = user.user_metadata || {};
+  const row = {
+    id: user.id,
+    discord_id: meta.provider_id || meta.sub || null,
+    username: meta.user_name || meta.name || meta.full_name || "unknown",
+    display_name: meta.custom_claims?.global_name || meta.full_name || meta.name || meta.user_name || "Unknown",
+    avatar_url: meta.avatar_url || meta.picture || null,
+  };
+
+  const { error } = await sb.from("members").upsert(row, { onConflict: "id" });
+  if (error) return fail("Could not register you")(error);
+
+  const { data: mine } = await sb.from("members").select("*").eq("id", user.id).single();
+  S.me = mine || row;
+
+  $("#gate").classList.add("hidden");
+  $("#app").classList.remove("hidden");
+
+  $("#appTitle").textContent = CFG.title || "Battleship Bingo";
+  $("#appSub").textContent = CFG.subtitle || "";
+  document.title = CFG.title || "Battleship Bingo";
+  $("#meAv").src = S.me.avatar_url || "";
+  $("#meName").textContent = S.me.display_name;
+  if (S.me.is_admin) {
+    $("#meRole").textContent = "Admiral";
+    $("#adminChip").classList.remove("hidden");
+  }
+
+  await loadAll();
+  subscribe();
+}
+
+$("#gateTitle").innerHTML = (CFG.title || "Battleship Bingo").replace(" ", "<br>");
+$("#gateSub").textContent = CFG.subtitle || "";
+
+// ---------------- load ----------------
+
+async function loadAll() {
+  const [b, t, m, a] = await Promise.all([
+    sb.from("board").select("*").eq("id", 1).single(),
+    sb.from("tiles").select("*").order("pos"),
+    sb.from("members").select("*"),
+    sb.from("assignments").select("*"),
+  ]);
+  if (b.data) S.board = b.data;
+  S.tiles = t.data || [];
+  S.members = new Map((m.data || []).map((x) => [x.id, x]));
+  S.assigns = new Map();
+  for (const row of a.data || []) {
+    if (!S.assigns.has(row.tile_id)) S.assigns.set(row.tile_id, []);
+    S.assigns.get(row.tile_id).push(row.member_id);
+  }
+  render();
+}
+
+let reloadTimer;
+const reload = () => { clearTimeout(reloadTimer); reloadTimer = setTimeout(loadAll, 140); };
+
+function subscribe() {
+  sb.channel("bb")
+    .on("postgres_changes", { event: "*", schema: "public", table: "tiles" }, (p) => {
+      const next = p.new, prev = p.old;
+      if (next && prev && next.status !== prev.status && next.status !== "open") {
+        S.fresh.add(next.id);
+        setTimeout(() => S.fresh.delete(next.id), 1200);
+      }
+      reload();
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, reload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "members" }, reload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "board" }, reload)
+    .subscribe((status) => {
+      $("#liveDot").textContent = status === "SUBSCRIBED" ? "● Live" : "○ Reconnecting";
+      $("#liveDot").style.color = status === "SUBSCRIBED" ? "#6BBF3F" : "var(--mute)";
+    });
+}
+
+// ---------------- render ----------------
+
+function visible(tile) {
+  if (S.filter === "all") return true;
+  if (S.filter === "mine") return (S.assigns.get(tile.id) || []).includes(S.me.id);
+  return tile.status === S.filter;
+}
+
+function render() {
+  const hits = S.tiles.filter((t) => t.status === "hit").length;
+  const spl  = S.tiles.filter((t) => t.status === "splash").length;
+  $("#tHit").textContent = hits;
+  $("#tSplash").textContent = spl;
+  $("#tOpen").textContent = S.tiles.length - hits - spl;
+
+  renderBoard();
+  renderRoster();
+  renderPanel();
+}
+
+const BURST = `<svg viewBox="0 0 100 100" fill="none"><path d="M50 4 L60 32 L88 22 L70 46 L96 60 L66 62 L74 92 L50 72 L26 92 L34 62 L4 60 L30 46 L12 22 L40 32 Z" fill="#E0453A" fill-opacity=".22" stroke="#E0453A" stroke-width="3" stroke-linejoin="round"/><circle cx="50" cy="52" r="11" fill="#E0453A"/></svg>`;
+const RINGS = `<svg viewBox="0 0 100 100" fill="none" stroke="#57ACD9"><circle cx="50" cy="52" r="9"  stroke-width="4" stroke-opacity=".95"/><circle cx="50" cy="52" r="21" stroke-width="3" stroke-opacity=".6"/><circle cx="50" cy="52" r="33" stroke-width="2.5" stroke-opacity=".35"/><circle cx="50" cy="52" r="44" stroke-width="2" stroke-opacity=".18"/></svg>`;
+
+function renderBoard() {
+  const cols = S.board.cols || 10;
+  const grid = $("#grid");
+  grid.style.setProperty("--cols", cols);
+  grid.innerHTML = "";
+
+  grid.appendChild(el("div", "gut gut-col"));
+  for (let c = 0; c < cols; c++) grid.appendChild(el("div", "gut gut-col", COL_LETTERS[c]));
+
+  const rows = Math.ceil(S.tiles.length / cols) || S.board.rows || 10;
+  for (let r = 0; r < rows; r++) {
+    grid.appendChild(el("div", "gut", String(r + 1)));
+    for (let c = 0; c < cols; c++) {
+      const pos = r * cols + c;
+      const tile = S.tiles.find((t) => t.pos === pos);
+      grid.appendChild(tile ? tileNode(tile, cols) : el("div", "tile", ""));
+    }
+  }
+}
+
+function tileNode(t, cols) {
+  const b = document.createElement("button");
+  b.className = "tile";
+  b.dataset.status = t.status;
+  if (S.selected === t.id) b.dataset.sel = "1";
+  b.style.opacity = visible(t) ? "1" : ".16";
+  b.setAttribute("aria-label", `${coordOf(t.pos, cols)} — ${t.name || "unnamed"} — ${t.status}`);
+  b.addEventListener("click", () => { S.selected = t.id; $("#panel").classList.remove("panel-idle"); render(); });
+
+  if (t.image) {
+    const art = el("div", "tile-art");
+    art.style.backgroundImage = `url(${t.image})`;
+    b.appendChild(art);
+  }
+
+  b.appendChild(el("div", "tile-coord", coordOf(t.pos, cols)));
+  if (t.qty > 1) b.appendChild(el("div", "tile-qty", "×" + t.qty));
+
+  if (t.status === "open") {
+    if (t.name) b.appendChild(el("div", "tile-name", t.name));
+    const ids = S.assigns.get(t.id) || [];
+    if (ids.length) {
+      const pins = el("div", "pins");
+      ids.slice(0, 3).forEach((id) => {
+        const m = S.members.get(id);
+        const img = document.createElement("img");
+        img.className = "pin";
+        img.src = m?.avatar_url || "";
+        img.alt = m?.display_name || "";
+        img.title = m?.display_name || "";
+        pins.appendChild(img);
+      });
+      if (ids.length > 3) pins.appendChild(el("div", "pin-more", "+" + (ids.length - 3)));
+      b.appendChild(pins);
+    }
+  } else {
+    const stamp = el("div", "stamp" + (S.fresh.has(t.id) ? " stamp-fresh" : ""));
+    stamp.innerHTML = t.status === "hit" ? BURST : RINGS;
+    b.appendChild(stamp);
+    b.appendChild(el("div", "stamp-label", t.status === "hit" ? "HIT" : "SPLASH"));
+  }
+  return b;
+}
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+// ---------------- panel ----------------
+
+function renderPanel() {
+  const p = $("#panel");
+  const t = S.tiles.find((x) => x.id === S.selected);
+  if (!t) {
+    p.classList.add("panel-idle");
+    p.innerHTML = `<div class="panel-empty">Select a tile<br>to log a shot</div>`;
+    return;
+  }
+
+  const cols = S.board.cols || 10;
+  const ids = S.assigns.get(t.id) || [];
+  const crew = ids.map((id) => S.members.get(id)).filter(Boolean);
+  const unassigned = [...S.members.values()]
+    .filter((m) => !ids.includes(m.id))
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+
+  p.innerHTML = `
+    <div class="p-head">
+      <div class="p-art" style="${t.image ? `background-image:url(${t.image})` : ""}"></div>
+      <div>
+        <div class="p-coord">${coordOf(t.pos, cols)}</div>
+        <div class="p-name">${esc(t.name || "Unnamed tile")}</div>
+        <div class="p-qty">${t.qty > 1 ? "Requires ×" + t.qty : "Single drop"} · ${t.status.toUpperCase()}</div>
+      </div>
+    </div>
+
+    <div class="p-sec">
+      <div class="p-sec-h"><span>On this tile</span><span>${crew.length}</span></div>
+      <div class="crew" id="crew"></div>
+      <div class="add-row">
+        <select class="sel" id="addSel">
+          <option value="">Add someone…</option>
+          ${unassigned.map((m) => `<option value="${m.id}">${esc(m.display_name)}</option>`).join("")}
+        </select>
+        <button class="btn btn-sm" id="addBtn">Add</button>
+      </div>
+      ${ids.includes(S.me.id)
+        ? `<button class="btn btn-sm" id="meBtn" style="width:100%;margin-top:6px">Take myself off</button>`
+        : `<button class="btn btn-sm btn-gold" id="meBtn" style="width:100%;margin-top:6px">I'm on it</button>`}
+    </div>
+
+    <div class="p-sec">
+      <div class="p-sec-h"><span>Fire control</span></div>
+      ${t.status === "open"
+        ? `<div class="fire-row">
+             <button class="btn btn-hit" data-mark="hit">Hit</button>
+             <button class="btn btn-splash" data-mark="splash">Splash</button>
+           </div>`
+        : `<button class="btn" data-mark="open" style="width:100%">Undo — back to unfired</button>`}
+      ${t.resolved_by && t.status !== "open"
+        ? `<div class="resolved-by">Called by ${esc(S.members.get(t.resolved_by)?.display_name || "someone")}<br>${new Date(t.resolved_at).toLocaleString()}</div>`
+        : ""}
+    </div>
+
+    <div class="p-sec">
+      <div class="p-sec-h"><span>Notes</span><span id="noteState"></span></div>
+      <textarea class="note" id="note" placeholder="Who's doing what, splits, timing…">${esc(t.notes || "")}</textarea>
+    </div>
+  `;
+
+  const crewBox = $("#crew");
+  if (!crew.length) crewBox.appendChild(el("div", "crew-none", "Nobody has taken this yet."));
+  crew.forEach((m) => {
+    const row = el("div", "crew-row");
+    const img = document.createElement("img");
+    img.className = "crew-av"; img.src = m.avatar_url || ""; img.alt = "";
+    row.appendChild(img);
+    row.appendChild(el("div", "crew-name", m.display_name));
+    const x = el("button", "crew-x", "✕");
+    x.title = "Remove";
+    x.addEventListener("click", () => unassign(t.id, m.id));
+    row.appendChild(x);
+    crewBox.appendChild(row);
+  });
+
+  $("#addBtn").addEventListener("click", () => {
+    const id = $("#addSel").value;
+    if (id) assign(t.id, id);
+  });
+  $("#meBtn").addEventListener("click", () =>
+    ids.includes(S.me.id) ? unassign(t.id, S.me.id) : assign(t.id, S.me.id));
+
+  p.querySelectorAll("[data-mark]").forEach((btn) =>
+    btn.addEventListener("click", () => mark(t.id, btn.dataset.mark)));
+
+  let noteTimer;
+  $("#note").addEventListener("input", (e) => {
+    $("#noteState").textContent = "saving…";
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(async () => {
+      const { error } = await sb.from("tiles").update({ notes: e.target.value, updated_at: new Date().toISOString() }).eq("id", t.id);
+      $("#noteState").textContent = error ? "failed" : "saved";
+    }, 600);
+  });
+}
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------------- mutations ----------------
+
+async function assign(tileId, memberId) {
+  const { error } = await sb.from("assignments").insert({ tile_id: tileId, member_id: memberId, added_by: S.me.id });
+  if (error) return fail("Could not add")(error);
+  reload();
+}
+
+async function unassign(tileId, memberId) {
+  const { error } = await sb.from("assignments").delete().eq("tile_id", tileId).eq("member_id", memberId);
+  if (error) return fail("Could not remove")(error);
+  reload();
+}
+
+async function mark(tileId, status) {
+  const patch = status === "open"
+    ? { status, resolved_by: null, resolved_at: null, updated_at: new Date().toISOString() }
+    : { status, resolved_by: S.me.id, resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  const { error } = await sb.from("tiles").update(patch).eq("id", tileId);
+  if (error) return fail("Could not mark tile")(error);
+  if (status !== "open") {
+    S.fresh.add(tileId);
+    setTimeout(() => { S.fresh.delete(tileId); render(); }, 1200);
+    toast(status === "hit" ? "Hit confirmed" : "Splash — no ship");
+  }
+  reload();
+}
+
+// ---------------- roster ----------------
+
+function renderRoster() {
+  const v = $("#rosterView");
+  const byMember = new Map();
+  for (const [tileId, ids] of S.assigns) for (const id of ids) {
+    if (!byMember.has(id)) byMember.set(id, []);
+    byMember.get(id).push(S.tiles.find((t) => t.id === tileId));
+  }
+
+  const cols = S.board.cols || 10;
+  v.innerHTML = "";
+  [...S.members.values()]
+    .sort((a, b) => (byMember.get(b.id)?.length || 0) - (byMember.get(a.id)?.length || 0)
+                 || a.display_name.localeCompare(b.display_name))
+    .forEach((m) => {
+      const row = el("div", "r-row");
+      const img = document.createElement("img");
+      img.className = "r-av"; img.src = m.avatar_url || ""; img.alt = "";
+      row.appendChild(img);
+
+      const right = el("div");
+      right.style.flex = "1";
+      right.appendChild(el("div", "r-name", m.display_name + (m.is_admin ? " ★" : "")));
+
+      const tiles = (byMember.get(m.id) || []).filter(Boolean);
+      if (!tiles.length) {
+        right.appendChild(el("div", "r-idle", "Not on a tile"));
+      } else {
+        const tags = el("div", "r-tags");
+        tiles.sort((a, b) => a.pos - b.pos).forEach((t) => {
+          const tag = el("div", "r-tag", `${coordOf(t.pos, cols)} · ${t.name || "unnamed"}`);
+          tag.dataset.status = t.status;
+          tag.addEventListener("click", () => {
+            S.selected = t.id; setView("board"); $("#panel").classList.remove("panel-idle"); render();
+          });
+          tag.style.cursor = "pointer";
+          tags.appendChild(tag);
+        });
+        right.appendChild(tags);
+      }
+      row.appendChild(right);
+      v.appendChild(row);
+    });
+}
+
+// ---------------- views + filters ----------------
+
+function setView(name) {
+  S.view = name;
+  $$("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === name)));
+  $("#boardView").classList.toggle("hidden", name !== "board");
+  $("#rosterView").classList.toggle("hidden", name !== "roster");
+  $("#adminView").classList.toggle("hidden", name !== "admin");
+  $("#panel").classList.toggle("hidden", name !== "board");
+}
+$$("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+
+$$("[data-filter]").forEach((b) => b.addEventListener("click", () => {
+  S.filter = b.dataset.filter;
+  $$("[data-filter]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.filter === S.filter)));
+  render();
+}));
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && S.selected) { S.selected = null; render(); }
+});
+
+// ---------------- admin: slice the board ----------------
+
+$("#buildBtn").addEventListener("click", async () => {
+  const file = $("#inImg").files[0];
+  const cols = parseInt($("#inCols").value, 10);
+  const rows = parseInt($("#inRows").value, 10);
+  if (!file) return toast("Pick a board image first", "bad");
+  if (!(cols > 0 && rows > 0)) return toast("Columns and rows must be positive", "bad");
+  if (!confirm(`Replace the board with ${cols * rows} tiles? Every claim, hit, and splash is cleared.`)) return;
+
+  $("#buildBtn").disabled = true;
+  $("#prog").style.display = "block";
+
+  try {
+    const img = await readImage(file);
+    const cw = img.width / cols, ch = img.height / rows;
+    const cv = document.createElement("canvas");
+    cv.width = 128; cv.height = 128;
+    const ctx = cv.getContext("2d");
+
+    let names = [];
+    try {
+      const seed = await fetch("./tiles.seed.json").then((r) => r.json());
+      if (seed.tiles?.length === cols * rows) names = seed.tiles;
+    } catch { /* seed file is optional */ }
+
+    const rowsOut = [];
+    for (let i = 0; i < cols * rows; i++) {
+      const r = Math.floor(i / cols), c = i % cols;
+      ctx.clearRect(0, 0, 128, 128);
+      ctx.drawImage(img, c * cw, r * ch, cw, ch, 0, 0, 128, 128);
+      rowsOut.push({
+        pos: i,
+        name: names[i]?.name || "",
+        qty: names[i]?.qty || 1,
+        image: cv.toDataURL("image/webp", 0.82),
+        status: "open",
+      });
+    }
+
+    await sb.from("tiles").delete().neq("pos", -1);
+    await sb.from("board").update({ cols, rows, updated_at: new Date().toISOString() }).eq("id", 1);
+
+    for (let i = 0; i < rowsOut.length; i += 20) {
+      const { error } = await sb.from("tiles").insert(rowsOut.slice(i, i + 20));
+      if (error) throw error;
+      $("#progBar").style.width = Math.round(((i + 20) / rowsOut.length) * 100) + "%";
+    }
+
+    toast(`Board published — ${rowsOut.length} tiles`);
+    setView("board");
+    await loadAll();
+  } catch (e) {
+    fail("Build failed")(e);
+  } finally {
+    $("#buildBtn").disabled = false;
+    $("#prog").style.display = "none";
+    $("#progBar").style.width = "0%";
+  }
+});
+
+function readImage(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error("That file did not decode as an image"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+$("#shuffleBtn").addEventListener("click", async () => {
+  if (!confirm("Shuffle which task sits in which cell?")) return;
+  const { error } = await sb.rpc("shuffle_board");
+  if (error) return fail("Shuffle failed")(error);
+  toast("Board shuffled");
+  await loadAll();
+});
+
+$("#resetBtn").addEventListener("click", async () => {
+  if (!confirm("Set every tile back to unfired and clear all claims?")) return;
+  const a = await sb.from("assignments").delete().neq("tile_id", "00000000-0000-0000-0000-000000000000");
+  const b = await sb.from("tiles").update({ status: "open", resolved_by: null, resolved_at: null }).neq("pos", -1);
+  if (a.error || b.error) return fail("Reset failed")(a.error || b.error);
+  toast("Board reset");
+  await loadAll();
+});
+</script>
+</body>
+</html>
