@@ -1779,16 +1779,67 @@ function crewRows() {
     }));
 }
 
-$("#copyCrew").addEventListener("click", async () => {
-  const lines = crewRows().map(({ m, tiles, cols }) =>
-    tiles.length
-      ? `**${nameOf(m)}** — ${tiles.map((t) => `\`${coordOf(t.pos, cols)}\` ${t.name || "unnamed"}`).join(", ")}`
-      : `**${nameOf(m)}** — *idle*`);
+// Discord caps a message at 2000 characters. Build the richest version that
+// fits, degrading in steps rather than getting silently truncated on paste.
+function crewMarkdown() {
+  const rows = crewRows();
+  const active = rows.filter((r) => r.tiles.length);
+  const idle = rows.filter((r) => !r.tiles.length);
+
   const hits = S.tiles.filter((t) => t.status === "hit").length;
-  const spl  = S.tiles.filter((t) => t.status === "splash").length;
-  const text = `__**${CFG.title || "Crew"}**__ · ${hits} hit / ${spl} splash / ${S.tiles.length - hits - spl} open · ${stamp()}\n\n${lines.join("\n")}`;
-  try { await navigator.clipboard.writeText(text); toast("Copied — paste it into Discord"); }
-  catch { fail("Clipboard blocked")(new Error("copy manually from the console")); console.log(text); }
+  const spl = S.tiles.filter((t) => t.status === "splash").length;
+  const open = S.tiles.length - hits - spl;
+
+  const head = `**${CFG.title || "Crew"}**` + (CFG.team ? ` · ${CFG.team}` : "") +
+               `\n${hits} hit · ${spl} splash · ${open} open · ${stamp()}`;
+
+  const line = (r, coordsOnly, limit) => {
+    let ts = r.tiles;
+    let more = 0;
+    if (limit && ts.length > limit) { more = ts.length - limit; ts = ts.slice(0, limit); }
+    const chips = ts.map((t) => coordsOnly
+      ? `\`${coordOf(t.pos, r.cols)}\``
+      : `\`${coordOf(t.pos, r.cols)}\` ${t.name || "unnamed"}`).join(", ");
+    return `**${nameOf(r.m)}** — ${chips}${more ? ` +${more}` : ""}`;
+  };
+
+  const build = ({ coordsOnly = false, idleNames = true, cap = 0 }) => {
+    const body = active.length
+      ? active.map((r) => line(r, coordsOnly, cap)).join("\n")
+      : "_Nobody is on a tile._";
+    let tail = "";
+    if (idle.length) {
+      tail = idleNames
+        ? `\n-# ${idle.length} idle — ${idle.map((r) => nameOf(r.m)).join(", ")}`
+        : `\n-# ${idle.length} idle`;
+    }
+    return `${head}\n\n${body}${tail}`;
+  };
+
+  const LIMIT = 1950;
+  const attempts = [
+    { coordsOnly: false, idleNames: true },
+    { coordsOnly: false, idleNames: false },
+    { coordsOnly: true,  idleNames: false },
+    { coordsOnly: true,  idleNames: false, cap: 4 },
+  ];
+  for (const a of attempts) {
+    const text = build(a);
+    if (text.length <= LIMIT) return { text, degraded: a !== attempts[0] };
+  }
+  const text = build(attempts[3]).slice(0, LIMIT - 20) + "\n-# …truncated";
+  return { text, degraded: true };
+}
+
+$("#copyCrew").addEventListener("click", async () => {
+  const { text, degraded } = crewMarkdown();
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(degraded ? "Copied — trimmed to fit Discord" : "Copied — paste it into Discord");
+  } catch {
+    console.log(text);
+    fail("Clipboard blocked")(new Error("the text is in the console"));
+  }
 });
 
 $("#expCrew").addEventListener("click", async () => {
@@ -1796,49 +1847,131 @@ $("#expCrew").addEventListener("click", async () => {
   try {
     await document.fonts.ready;
     const rows = crewRows();
-    const W = 940, PAD = 26, HEAD = 92, ROW = 74;
+    const mk = await marks();
+
+    const CW = 300, GAP = 10, PAD = 26, HEAD = 92;
+    const cols = rows.length <= 3 ? Math.max(1, rows.length)
+               : rows.length <= 6 ? 3 : 4;
+    const W = PAD * 2 + cols * CW + (cols - 1) * GAP;
+
+    // measure first: tag rows decide each card's height
+    const probe = document.createElement("canvas").getContext("2d");
+    probe.font = '400 9px "Silkscreen", monospace';
+    const TAGH = 21, TAGGAP = 5, INNER = CW - 28;
+
+    const cards = rows.map(({ m, tiles, cols: bc }) => {
+      const tags = tiles.map((t) => ({
+        t,
+        label: fitText(probe, `${coordOf(t.pos, bc)} · ${t.name || "unnamed"}`, INNER - 14),
+      }));
+      tags.forEach((g) => (g.w = probe.measureText(g.label).width + 14));
+
+      const lines = [];
+      let line = [], used = 0;
+      for (const g of tags) {
+        if (line.length && used + g.w + TAGGAP > INNER) { lines.push(line); line = []; used = 0; }
+        line.push(g); used += g.w + TAGGAP;
+      }
+      if (line.length) lines.push(line);
+
+      const h = 14 + 46 + 11 + (tiles.length ? lines.length * TAGH + (lines.length - 1) * TAGGAP : 14) + 14;
+      return { m, tiles, lines, h };
+    });
+
+    // masonry: drop each card into the shortest column
+    const colY = Array(cols).fill(PAD + HEAD);
+    cards.forEach((c) => {
+      const i = colY.indexOf(Math.min(...colY));
+      c.x = PAD + i * (CW + GAP);
+      c.y = colY[i];
+      colY[i] += c.h + GAP;
+    });
+    const H = Math.max(...colY) + PAD;
+
     const cv = document.createElement("canvas");
-    cv.width = W; cv.height = PAD * 2 + HEAD + Math.max(rows.length, 1) * ROW;
+    cv.width = W; cv.height = H;
     const ctx = cv.getContext("2d");
 
-    const mk = await marks();
-    ctx.fillStyle = C.abyss; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = C.abyss; ctx.fillRect(0, 0, W, H);
+    if (mk.ember) {
+      const ms = Math.min(W, H) * 0.5;
+      ctx.save(); ctx.globalAlpha = 0.05;
+      ctx.drawImage(mk.ember, (W - ms) / 2, HEAD + (H - HEAD - ms) / 2, ms, ms);
+      ctx.restore();
+    }
     header(ctx, W, "CREW ASSIGNMENTS", mk);
 
     const avs = new Map();
-    await Promise.all(rows.map(async ({ m }) => avs.set(m.id, await avatar(m.avatar_url))));
+    await Promise.all(cards.map(async ({ m }) => avs.set(m.id, await avatar(m.avatar_url))));
 
-    let y = PAD + HEAD;
-    for (const { m, tiles, cols } of rows) {
-      ctx.strokeStyle = C.line; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(PAD, y + .5); ctx.lineTo(W - PAD, y + .5); ctx.stroke();
+    for (const c of cards) {
+      const { m, tiles, lines, x, y, h } = c;
+      ctx.save();
+      if (!tiles.length) ctx.globalAlpha = 0.55;
 
-      disc(ctx, avs.get(m.id), PAD + 22, y + ROW / 2, 22, nameOf(m)[0].toUpperCase());
+      ctx.fillStyle = C.hull; ctx.globalAlpha *= 0.6; ctx.fillRect(x, y, CW, h);
+      ctx.globalAlpha /= 0.6;
+      ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, CW - 1, h - 1);
 
+      // avatar
+      const av = avs.get(m.id);
+      if (av) ctx.drawImage(av, x + 14, y + 14, 46, 46);
+      else {
+        ctx.fillStyle = C.line2; ctx.fillRect(x + 14, y + 14, 46, 46);
+        ctx.fillStyle = C.bone; ctx.font = '700 22px Barlow, sans-serif';
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(nameOf(m)[0].toUpperCase(), x + 37, y + 38);
+      }
+      ctx.strokeStyle = C.line2; ctx.strokeRect(x + 14.5, y + 14.5, 45, 45);
+
+      // count badge, right aligned
+      ctx.font = '400 12px "Silkscreen", monospace';
+      const cnt = String(tiles.length);
+      const bw = ctx.measureText(cnt).width + 16;
+      ctx.strokeStyle = tiles.length ? "#8A5C23" : C.line;
+      ctx.strokeRect(x + CW - 14 - bw + .5, y + 22.5, bw - 1, 21);
+      ctx.fillStyle = tiles.length ? C.gold : C.mute;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(cnt, x + CW - 14 - bw / 2, y + 34);
+
+      // name + handle
+      const nameW = CW - 14 - 46 - 12 - bw - 22;
       ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-      ctx.font = '600 16px Cinzel, Georgia, serif';
+      ctx.font = '600 15px Cinzel, Georgia, serif';
       ctx.fillStyle = C.bone;
-      ctx.fillText(nameOf(m).toUpperCase() + (m.is_admin ? " ★" : ""), PAD + 58, y + 30);
+      ctx.fillText(fitText(ctx, nameOf(m).toUpperCase() + (m.is_admin ? " ★" : ""), nameW), x + 72, y + 34);
 
-      ctx.font = '400 11px "Silkscreen", monospace';
+      ctx.font = '400 8px "Silkscreen", monospace';
+      ctx.fillStyle = m.auth_id ? C.mute : "#8A5C23";
+      ctx.fillText(fitText(ctx, (m.auth_id ? m.username : "has not signed in").toUpperCase(), nameW), x + 72, y + 50);
+
+      // tiles
+      let ty = y + 14 + 46 + 11;
       if (!tiles.length) {
-        ctx.fillStyle = C.mute; ctx.fillText("NOT ON A TILE", PAD + 58, y + 52);
+        ctx.font = '400 9px "Silkscreen", monospace';
+        ctx.fillStyle = C.mute;
+        ctx.fillText("NOT ON A TILE", x + 14, ty + 10);
       } else {
-        let x = PAD + 58;
-        for (const t of tiles) {
-          const label = `${coordOf(t.pos, cols)} ${(t.name || "unnamed").slice(0, 22)}`;
-          const w = ctx.measureText(label).width + 14;
-          if (x + w > W - PAD) { ctx.fillStyle = C.mute; ctx.fillText("…", x, y + 52); break; }
-          ctx.strokeStyle = t.status === "hit" ? "#7A3312" : t.status === "splash" ? "#2E4650" : C.line;
-          ctx.fillStyle = C.hull;
-          ctx.fillRect(x, y + 40, w, 18); ctx.strokeRect(x + .5, y + 40.5, w - 1, 17);
-          ctx.fillStyle = t.status === "hit" ? C.hit : t.status === "splash" ? C.splash : C.bone;
-          ctx.fillText(label, x + 7, y + 53);
-          x += w + 6;
+        ctx.font = '400 9px "Silkscreen", monospace';
+        for (const line of lines) {
+          let tx = x + 14;
+          for (const g of line) {
+            ctx.strokeStyle = g.t.status === "hit" ? "#7A3312" : g.t.status === "splash" ? "#2E4650" : C.line;
+            ctx.fillStyle = C.hull;
+            ctx.fillRect(tx, ty, g.w, TAGH);
+            ctx.strokeRect(tx + .5, ty + .5, g.w - 1, TAGH - 1);
+            ctx.fillStyle = g.t.status === "hit" ? C.hit : g.t.status === "splash" ? C.splash : C.bone;
+            ctx.textBaseline = "middle";
+            ctx.fillText(g.label, tx + 7, ty + TAGH / 2 + 1);
+            ctx.textBaseline = "alphabetic";
+            tx += g.w + TAGGAP;
+          }
+          ty += TAGH + TAGGAP;
         }
       }
-      y += ROW;
+      ctx.restore();
     }
+
     await finish(cv, "crew.png");
   } catch (e) { fail("Export failed")(e); }
   finally { $("#expCrew").disabled = false; }
