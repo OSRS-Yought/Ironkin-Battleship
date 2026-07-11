@@ -2391,11 +2391,22 @@ $("#expBoard").addEventListener("click", async () => {
       ctx.fillText(coordOf(t.pos, cols), x + 5, y + 5);
 
       if (t.qty > 1) {
-        const bw = 20 + String(t.qty).length * 9;
-        ctx.fillStyle = C.gold; ctx.fillRect(x + s - 5 - bw, y + 5, bw, 21);
-        ctx.font = '400 15px "Silkscreen", monospace';
+        const partial = t.got > 0 && t.got < t.qty && t.status === "open";
+        const txt = partial ? `${t.got}/${t.qty}` : "x" + t.qty;
+        const bw = 14 + txt.length * 8;
+        ctx.fillStyle = partial ? C.hull : C.gold;
+        ctx.fillRect(x + s - 5 - bw, y + 5, bw, 21);
+        if (partial) { ctx.strokeStyle = "#8A5C23"; ctx.lineWidth = 1; ctx.strokeRect(x + s - 5 - bw + .5, y + 5.5, bw - 1, 20); }
+        ctx.font = '400 13px "Silkscreen", monospace';
         ctx.textAlign = "right"; ctx.textBaseline = "top";
-        ctx.fillStyle = "#160E02"; ctx.fillText("x" + t.qty, x + s - 10, y + 9);
+        ctx.fillStyle = partial ? C.gold : "#160E02";
+        ctx.fillText(txt, x + s - 10, y + 9);
+
+        if (partial) {
+          const py = y + artH - 3;
+          ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(x, py, s, 3);
+          ctx.fillStyle = C.gold; ctx.fillRect(x, py, Math.round(s * (t.got / t.qty)), 3);
+        }
       }
 
       if (t.status === "open") {
