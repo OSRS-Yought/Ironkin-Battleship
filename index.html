@@ -188,6 +188,12 @@
     padding:3px 5px;line-height:1;
     box-shadow:0 1px 4px rgba(0,0,0,.5);
   }
+  .tile-qty[data-part="1"]{background:var(--hull-2);color:var(--gold);border:1px solid var(--gold-dim)}
+  .tile-prog{
+    position:absolute;left:0;right:0;bottom:34%;height:3px;
+    background:rgba(0,0,0,.5);
+  }
+  .tile-prog span{display:block;height:100%;background:var(--gold)}
   .tile-coord{
     position:absolute;top:4px;left:5px;
     font-family:var(--data);font-size:9px;color:rgba(231,224,210,.4);
@@ -295,6 +301,21 @@
 
   .fire-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .fire-row .btn{width:100%;justify-content:center}
+
+  .step{display:flex;align-items:center;gap:0;margin-bottom:12px;border:1px solid var(--line)}
+  .step-btn{
+    width:44px;height:40px;flex:none;background:var(--hull);border:none;
+    font-family:var(--serif);font-size:20px;color:var(--gold);line-height:1;
+  }
+  .step-btn:hover{background:var(--hull-2)}
+  .step-btn:disabled{opacity:.3;cursor:not-allowed}
+  .step-mid{
+    flex:1;text-align:center;font-family:var(--data);font-size:13px;letter-spacing:.08em;
+    color:var(--bone);padding:0 8px;
+  }
+  .step-mid b{color:var(--gold);font-size:16px}
+  .step-bar{height:4px;background:var(--hull);margin:-6px 0 14px}
+  .step-bar span{display:block;height:100%;background:var(--gold);transition:width .2s}
 
   .note{
     width:100%;min-height:70px;resize:vertical;
@@ -989,6 +1010,7 @@ function renderBoard() {
 }
 
 function tileNode(t, cols) {
+  const partial = t.qty > 1 && t.got > 0 && t.got < t.qty && t.status === "open";
   const b = document.createElement("button");
   b.className = "tile";
   b.dataset.status = t.status;
@@ -1004,7 +1026,18 @@ function tileNode(t, cols) {
   }
 
   b.appendChild(el("div", "tile-coord", coordOf(t.pos, cols)));
-  if (t.qty > 1) b.appendChild(el("div", "tile-qty", "×" + t.qty));
+  if (t.qty > 1) {
+    const badge = el("div", "tile-qty", t.got > 0 && t.status === "open" ? `${t.got}/${t.qty}` : "×" + t.qty);
+    if (partial) badge.dataset.part = "1";
+    b.appendChild(badge);
+  }
+  if (partial) {
+    const bar = el("div", "tile-prog");
+    const fill = el("span");
+    fill.style.width = Math.round((t.got / t.qty) * 100) + "%";
+    bar.appendChild(fill);
+    b.appendChild(bar);
+  }
 
   if (t.status === "open") {
     if (t.name) b.appendChild(el("div", "tile-name", t.name));
@@ -1085,9 +1118,17 @@ function renderPanel() {
 
     <div class="p-sec">
       <div class="p-sec-h"><span>Fire control</span></div>
+      ${t.qty > 1 && t.status === "open" ? `
+        <div class="step" id="step">
+          <button class="step-btn" id="stepDown" ${t.got <= 0 ? "disabled" : ""}>−</button>
+          <div class="step-mid"><b id="stepN">${t.got}</b> / ${t.qty} collected</div>
+          <button class="step-btn" id="stepUp">+</button>
+        </div>
+        <div class="step-bar"><span id="stepFill" style="width:${Math.round((t.got / t.qty) * 100)}%"></span></div>
+      ` : ""}
       ${t.status === "open"
         ? `<div class="fire-row">
-             <button class="btn btn-hit" data-mark="hit">Hit</button>
+             <button class="btn btn-hit" data-mark="hit">Hit${t.qty > 1 ? " now" : ""}</button>
              <button class="btn btn-splash" data-mark="splash">Splash</button>
            </div>`
         : `<button class="btn" data-mark="open" style="width:100%">Undo — back to unfired</button>`}
@@ -1132,6 +1173,9 @@ function renderPanel() {
   p.querySelectorAll("[data-mark]").forEach((btn) =>
     btn.addEventListener("click", () => mark(t.id, btn.dataset.mark)));
 
+  if ($("#stepUp")) $("#stepUp").addEventListener("click", () => bumpProgress(t, +1));
+  if ($("#stepDown")) $("#stepDown").addEventListener("click", () => bumpProgress(t, -1));
+
   let noteTimer;
   $("#note").addEventListener("input", (e) => {
     $("#noteState").textContent = "saving…";
@@ -1159,9 +1203,34 @@ async function unassign(tileId, memberId) {
   reload();
 }
 
+async function bumpProgress(tile, delta) {
+  const next = Math.max(0, Math.min(tile.qty, (tile.got || 0) + delta));
+  if (next === tile.got) return;
+
+  // Reaching the requirement IS the hit — fire and record it in one write.
+  if (next >= tile.qty) {
+    const { error } = await sb.from("tiles").update({
+      got: next, status: "hit",
+      resolved_by: S.me.id, resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", tile.id);
+    if (error) return fail("Could not update")(error);
+    S.fresh.add(tile.id);
+    setTimeout(() => { S.fresh.delete(tile.id); render(); }, 1200);
+    toast(`${tile.name || "Tile"} complete — hit`);
+  } else {
+    const { error } = await sb.from("tiles").update({ got: next, updated_at: new Date().toISOString() }).eq("id", tile.id);
+    if (error) return fail("Could not update")(error);
+  }
+  reload();
+}
+
 async function mark(tileId, status) {
+  const t = S.tiles.find((x) => x.id === tileId);
   const patch = status === "open"
-    ? { status, resolved_by: null, resolved_at: null, updated_at: new Date().toISOString() }
+    ? { status, resolved_by: null, resolved_at: null,
+        got: (t && t.qty > 1) ? 0 : (t ? t.got : 0),
+        updated_at: new Date().toISOString() }
     : { status, resolved_by: S.me.id, resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() };
   const { error } = await sb.from("tiles").update(patch).eq("id", tileId);
   if (error) return fail("Could not mark tile")(error);
@@ -1884,6 +1953,7 @@ async function setTileIcon(tile) {
 
 const LOG_KIND = (a) =>
   a === "tile.hit" ? "hit" :
+  a === "tile.progress" ? "hit" :
   a === "tile.splash" ? "splash" :
   a.startsWith("board.") ? "board" :
   a.startsWith("member.") || a.startsWith("roster.") ? "member" : "";
@@ -1893,6 +1963,7 @@ const LOG_LABEL = {
   "tile.note": "note", "assign.add": "claimed", "assign.remove": "released",
   "member.add": "added", "member.remove": "removed", "member.signin": "signed in",
   "member.rename": "renamed", "roster.add": "roster +", "roster.remove": "roster −",
+  "tile.progress": "progress",
   "board.build": "built", "board.clear": "cleared", "board.shuffle": "shuffled",
 };
 
@@ -1941,6 +2012,7 @@ function renderLog() {
         case "tile.splash":  return [`called a splash on `, `${coord} ${r.target}`];
         case "tile.reopen":  return [`reopened `, `${coord} ${r.target}`, ` (was ${d.from})`];
         case "tile.note":    return [`edited notes on `, `${coord} ${r.target}`];
+        case "tile.progress":return [`marked `, `${coord} ${r.target}`, ` at ${d.to}/${d.need}`];
         case "assign.add":   return [`put `, r.target, ` on ${coord} ${d.tile}`];
         case "assign.remove":return [`took `, r.target, ` off ${coord} ${d.tile}`];
         case "member.add":   return [d.placeholder ? `created a placeholder for ` : `registered `, r.target];
