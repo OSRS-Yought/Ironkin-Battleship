@@ -259,6 +259,8 @@
   .tile[data-status="splash"] .stamp-label{color:var(--splash)}
   .tile[data-status="hit"] .tile-name,
   .tile[data-status="splash"] .tile-name{display:none}
+  .tile[data-status="hit"] .tile-qty,
+  .tile[data-status="splash"] .tile-qty{filter:saturate(.3) brightness(.5)}
 
   @keyframes fire{
     0%{transform:scale(.4);opacity:0}
@@ -530,6 +532,12 @@
   body[data-blackout="1"] .tile[data-status="hit"] .tile-art,
   body[data-blackout="1"] .tile[data-status="splash"] .tile-art{
     filter:saturate(.12) brightness(.22);
+  }
+  body[data-blackout="1"] .tile[data-status="hit"] .tile-qty,
+  body[data-blackout="1"] .tile[data-status="splash"] .tile-qty,
+  body[data-blackout="1"] .tile[data-status="hit"] .tile-prog,
+  body[data-blackout="1"] .tile[data-status="splash"] .tile-prog{
+    filter:saturate(.2) brightness(.35);
   }
   body[data-blackout="1"] .tile[data-status="hit"] .stamp svg,
   body[data-blackout="1"] .tile[data-status="splash"] .stamp svg{display:none}
@@ -1078,6 +1086,51 @@ window.addEventListener("resize", () => {
   fitRAF = requestAnimationFrame(applyFit);
 });
 
+// ---------------- easter eggs ----------------
+// None of these touch data. Purely cosmetic.
+
+// 1. Konami code: every done tile re-fires its brand-sear at once.
+const KONAMI = ["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"];
+let kIdx = 0;
+document.addEventListener("keydown", (e) => {
+  kIdx = e.key === KONAMI[kIdx] ? kIdx + 1 : (e.key === KONAMI[0] ? 1 : 0);
+  if (kIdx === KONAMI.length) {
+    kIdx = 0;
+    document.querySelectorAll('.tile[data-status="hit"] .stamp, .tile[data-status="splash"] .stamp')
+      .forEach((n, i) => setTimeout(() => {
+        n.classList.remove("stamp-fresh"); void n.offsetWidth; n.classList.add("stamp-fresh");
+      }, i * 45));
+    toast("The forge remembers");
+  }
+});
+
+// 2. Milestones: every 10th completion in blackout gets a line of its own.
+const MILESTONES = {
+  10: "Ten tiles down. The iron sings.",
+  25: "A quarter cleared. Keep the coals hot.",
+  50: "Half the board. Forged, not found.",
+  75: "Three quarters. The dark recedes.",
+  90: "Ten remain. Finish it.",
+  99: "One tile left. One.",
+  100: "BLACKOUT COMPLETE. FORGED ALONE, BOUND AS KIN.",
+};
+let lastDone = null;
+function checkMilestone() {
+  if (!CFG.blackout) return;
+  const done = S.tiles.filter((t) => t.status !== "open").length;
+  if (lastDone === null) { lastDone = done; return; } // don't fire on first load
+  if (done > lastDone && MILESTONES[done]) toast(MILESTONES[done]);
+  lastDone = done;
+}
+
+// 3. Type "apey" anywhere outside an input: a one-time salute in the console.
+let apeBuf = "";
+document.addEventListener("keypress", (e) => {
+  if (/input|textarea|select/i.test(e.target.tagName)) return;
+  apeBuf = (apeBuf + e.key).slice(-4);
+  if (apeBuf === "apey") console.log("%c🦍 o7 Captain", "font-size:22px");
+});
+
 // ---------------- render ----------------
 
 function visible(tile) {
@@ -1096,6 +1149,7 @@ function render() {
   renderRoster();
   renderPanel();
   applyFit();
+  checkMilestone();
 }
 
 // the strike: sparks off the anvil, hot core
@@ -1390,7 +1444,8 @@ function renderRoster() {
 
       const idBox = el("div", "r-id");
       idBox.appendChild(el("div", "r-name", nameOf(m) + (m.is_admin ? " ★" : "")));
-      const sub = el("div", "r-sub", m.auth_id ? m.username : "has not signed in");
+      const sub = el("div", "r-sub",
+        (m.team ? m.team + " · " : "") + (m.auth_id ? m.username : "has not signed in"));
       if (!m.auth_id) sub.dataset.ghost = "1";
       idBox.appendChild(sub);
       top.appendChild(idBox);
@@ -2205,7 +2260,7 @@ function renderRsn() {
 
       const inp = document.createElement("input");
       inp.className = "a-in";
-      inp.style.width = "150px";
+      inp.style.width = "130px";
       inp.placeholder = "in-game name";
       inp.value = m.rsn || "";
       inp.addEventListener("keydown", (e) => { if (e.key === "Enter") inp.blur(); });
@@ -2213,6 +2268,22 @@ function renderRsn() {
         if ((inp.value.trim() || null) !== (m.rsn || null)) saveRsn(m.id, inp.value);
       });
       row.appendChild(inp);
+
+      const tin = document.createElement("input");
+      tin.className = "a-in";
+      tin.style.width = "110px";
+      tin.placeholder = "team";
+      tin.value = m.team || "";
+      tin.addEventListener("keydown", (e) => { if (e.key === "Enter") tin.blur(); });
+      tin.addEventListener("blur", async () => {
+        const v = tin.value.trim() || null;
+        if (v === (m.team || null)) return;
+        const { error } = await sb.from("members").update({ team: v }).eq("id", m.id);
+        if (error) return fail("Could not save team")(error);
+        toast(v ? "Team set" : "Team cleared");
+        await loadAll(); renderRsn();
+      });
+      row.appendChild(tin);
       box.appendChild(row);
     });
 }
