@@ -560,6 +560,48 @@
   }
   body[data-blackout="1"] .stamp-fresh.stamp{animation:brand-sear .5s cubic-bezier(.2,.9,.25,1)}
 
+  /* heat flash under the sigil */
+  body[data-blackout="1"] .stamp-fresh.stamp::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(circle at 50% 44%,
+      rgba(255,201,107,.95), rgba(255,106,30,.4) 42%, transparent 72%);
+    animation:sear-heat .7s ease-out forwards;
+  }
+  @keyframes sear-heat{0%{opacity:0}16%{opacity:1}100%{opacity:0}}
+
+  /* expanding heat ring */
+  body[data-blackout="1"] .stamp-fresh.stamp::after{
+    content:"";position:absolute;left:50%;top:44%;
+    width:22%;aspect-ratio:1;border-radius:50%;pointer-events:none;
+    border:2px solid rgba(255,140,50,.85);
+    transform:translate(-50%,-50%) scale(.4);
+    animation:sear-ring .8s cubic-bezier(.2,.8,.3,1) forwards;
+  }
+  @keyframes sear-ring{
+    to{transform:translate(-50%,-50%) scale(4);opacity:0;border-width:1px}
+  }
+
+  /* sparks off the brand point */
+  .sear-spark{
+    position:absolute;left:50%;top:44%;width:4px;height:4px;border-radius:50%;
+    background:#FFC96B;pointer-events:none;
+    box-shadow:0 0 6px 1px rgba(255,150,50,.9);
+    animation:sear-spark .72s ease-out forwards;
+  }
+  @keyframes sear-spark{
+    0%{transform:translate(-50%,-50%) rotate(var(--a)) translateX(2px);opacity:1}
+    100%{transform:translate(-50%,-50%) rotate(var(--a)) translateX(var(--d));opacity:0}
+  }
+
+  /* the tile takes the hit */
+  @keyframes sear-jolt{
+    0%{transform:scale(1)}
+    30%{transform:scale(1.03)}
+    55%{transform:scale(.99)}
+    100%{transform:scale(1)}
+  }
+  body[data-blackout="1"] .tile:has(> .stamp-fresh){animation:sear-jolt .35s ease-out}
+
   @media (prefers-reduced-motion: reduce){
     *{animation:none !important;transition:none !important}
   }
@@ -1227,6 +1269,15 @@ function tileNode(t, cols) {
   } else {
     const stamp = el("div", "stamp" + (S.fresh.has(t.id) ? " stamp-fresh" : ""));
     stamp.innerHTML = t.status === "hit" ? BURST : RINGS;
+    if (S.fresh.has(t.id) && CFG.blackout) {
+      for (let k = 0; k < 6; k++) {
+        const sp = el("span", "sear-spark");
+        sp.style.setProperty("--a", Math.round(k * 60 + Math.random() * 34) + "deg");
+        sp.style.setProperty("--d", Math.round(26 + Math.random() * 26) + "px");
+        sp.style.animationDelay = Math.round(Math.random() * 70) + "ms";
+        stamp.appendChild(sp);
+      }
+    }
     b.appendChild(stamp);
     b.appendChild(el("div", "stamp-label",
       CFG.blackout ? "DONE" : (t.status === "hit" ? "HIT" : "SPLASH")));
