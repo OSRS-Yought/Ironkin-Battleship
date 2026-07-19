@@ -12,19 +12,19 @@ window.BB_CONFIG = {
 
   // Header, sign-in screen, and both exported PNGs.
   title: "Ironkin Battleship Bingo",
-  subtitle: "Forged alone, bound as kin",
+  subtitle: "Blackout — finish the board",
 
-  // Your team. Shown beside the wordmark and stamped on exports.
-  team: "Apey's Apes",
+  // Team tag. Empty string = no tag anywhere.
+  team: "",
+
+  // Blackout mode: the event is over and the survivors are clearing the
+  // whole board. Splash disappears, HIT becomes DONE, tallies read
+  // Done / Left. Existing hit/splash data is preserved untouched.
+  blackout: true,
 
   // What happens when someone signs in who is NOT on the crew roster.
-  //   false          -> polite "Not aboard" screen
-  //   true           -> redirect them to the video
-  //   "https://..."  -> redirect them wherever you like
-  rickroll: true,
+  rickroll: false,
 
-  // Where the live board lives. Setup -> Sync from the clan site reads this
-  // page and renames tiles in place. It only applies if what it finds is the
-  // same 100 items you already have, so a hidden or restyled board is a no-op.
-  boardSourceUrl: "https://ironkinclan.com/battleship-bingo",
+  // Dead now that the event site is retired.
+  boardSourceUrl: "",
 };

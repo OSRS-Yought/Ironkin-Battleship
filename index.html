@@ -137,6 +137,8 @@
     background-size:min(620px, 52%) auto;
     background-attachment:local;
   }
+  /* fit mode: derive tile size from viewport height so all rows are visible */
+  .board-scroll[data-fit="1"]{overflow:hidden;padding:14px 20px}
   .grid{
     display:grid;
     grid-template-columns:24px repeat(var(--cols,10), minmax(76px, 1fr));
@@ -145,6 +147,21 @@
     max-width:1480px;
     margin:0 auto;
   }
+  .board-scroll[data-fit="1"] .grid{
+    grid-template-columns:20px repeat(var(--cols,10), var(--tile, 60px));
+    min-width:0;
+    max-width:none;
+    width:max-content;
+  }
+  .board-scroll[data-fit="1"] .gut-col{height:16px}
+  /* small-tile tuning for fit mode */
+  .board-scroll[data-fit="1"] .tile-name{font-size:9px;padding:1px 2px;line-height:1.02}
+  .board-scroll[data-fit="1"] .tile-coord{font-size:8px;top:2px;left:3px}
+  .board-scroll[data-fit="1"] .tile-qty{font-size:11px;padding:2px 3px;top:2px;right:2px}
+  .board-scroll[data-fit="1"] .pin,
+  .board-scroll[data-fit="1"] .pin-more{width:22px;height:22px;margin-left:-7px}
+  .board-scroll[data-fit="1"] .pin-more{font-size:8px}
+  .board-scroll[data-fit="1"] .pins{right:2px;bottom:36%}
   .gut{
     display:flex;align-items:center;justify-content:center;
     font-family:var(--data);font-size:11px;color:var(--line-2);
@@ -526,9 +543,9 @@
     <div class="topbar-spacer"></div>
 
     <div class="tally">
-      <div class="tally-cell tally-hit"><div class="tally-n" id="tHit">0</div><div class="tally-l">Hits</div></div>
-      <div class="tally-cell tally-splash"><div class="tally-n" id="tSplash">0</div><div class="tally-l">Splash</div></div>
-      <div class="tally-cell tally-open"><div class="tally-n" id="tOpen">0</div><div class="tally-l">Open</div></div>
+      <div class="tally-cell tally-hit"><div class="tally-n" id="tHit">0</div><div class="tally-l" id="tHitL">Hits</div></div>
+      <div class="tally-cell tally-splash" id="tSplashCell"><div class="tally-n" id="tSplash">0</div><div class="tally-l">Splash</div></div>
+      <div class="tally-cell tally-open"><div class="tally-n" id="tOpen">0</div><div class="tally-l" id="tOpenL">Open</div></div>
     </div>
 
     <div class="who">
@@ -552,9 +569,10 @@
     <button class="chip" data-filter="all" aria-pressed="true">All</button>
     <button class="chip" data-filter="open" aria-pressed="false">Unfired</button>
     <button class="chip" data-filter="hit" aria-pressed="false">Hits</button>
-    <button class="chip" data-filter="splash" aria-pressed="false">Splashes</button>
+    <button class="chip" data-filter="splash" aria-pressed="false" id="splashChip">Splashes</button>
 
     <div class="controls-spacer"></div>
+    <button class="chip" id="fitToggle" aria-pressed="true">⤢ Fit</button>
     <button class="chip" id="expBoard">⬓ Export board</button>
     <button class="chip hidden" id="expCrew">⬓ Export crew</button>
     <button class="chip hidden" id="copyCrew">Copy as text</button>
@@ -868,6 +886,12 @@ async function start(user) {
   $("#appTitle").textContent = CFG.title || "Battleship Bingo";
   $("#appSub").textContent = CFG.subtitle || "";
   $("#appTeam").textContent = CFG.team || "";
+  if (CFG.blackout) {
+    $("#tHitL").textContent = "Done";
+    $("#tOpenL").textContent = "Left";
+    $("#tSplashCell").style.display = "none";
+    $("#splashChip").style.display = "none";
+  }
   document.title = CFG.title || "Battleship Bingo";
   $("#meAv").src = S.me.avatar_url || "";
   $("#meName").textContent = nameOf(S.me);
@@ -965,6 +989,42 @@ function subscribe() {
     });
 }
 
+// ---------------- fit to page ----------------
+
+let FIT = localStorage.getItem("bb.fit") !== "0"; // default on
+
+function applyFit() {
+  const scroll = $("#boardView");
+  scroll.dataset.fit = FIT ? "1" : "0";
+  $("#fitToggle").setAttribute("aria-pressed", String(FIT));
+  if (!FIT) { scroll.style.removeProperty("--tile"); return; }
+
+  const cols = S.board.cols || 10;
+  const rows = Math.ceil((S.tiles.length || 100) / cols) || 10;
+
+  // space the grid actually has to work with
+  const availH = scroll.clientHeight - 28 /*padding*/ - 16 /*col gutter*/ - rows * 4 /*gaps*/;
+  const availW = scroll.clientWidth - 40 /*padding*/ - 20 /*row gutter*/ - cols * 4;
+
+  const byH = Math.floor(availH / rows);
+  const byW = Math.floor(availW / cols);
+  const tile = Math.max(38, Math.min(byH, byW)); // never smaller than legible
+
+  scroll.style.setProperty("--tile", tile + "px");
+}
+
+$("#fitToggle").addEventListener("click", () => {
+  FIT = !FIT;
+  localStorage.setItem("bb.fit", FIT ? "1" : "0");
+  applyFit();
+});
+
+let fitRAF;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(fitRAF);
+  fitRAF = requestAnimationFrame(applyFit);
+});
+
 // ---------------- render ----------------
 
 function visible(tile) {
@@ -982,6 +1042,7 @@ function render() {
   renderBoard();
   renderRoster();
   renderPanel();
+  applyFit();
 }
 
 // the strike: sparks off the anvil, hot core
@@ -1060,7 +1121,7 @@ function tileNode(t, cols) {
     const stamp = el("div", "stamp" + (S.fresh.has(t.id) ? " stamp-fresh" : ""));
     stamp.innerHTML = t.status === "hit" ? BURST : RINGS;
     b.appendChild(stamp);
-    b.appendChild(el("div", "stamp-label", t.status === "hit" ? "HIT" : "SPLASH"));
+    b.appendChild(el("div", "stamp-label", t.status === "hit" ? (CFG.blackout ? "DONE" : "HIT") : "SPLASH"));
   }
   return b;
 }
@@ -1127,11 +1188,13 @@ function renderPanel() {
         <div class="step-bar"><span id="stepFill" style="width:${Math.round((t.got / t.qty) * 100)}%"></span></div>
       ` : ""}
       ${t.status === "open"
-        ? `<div class="fire-row">
+        ? (CFG.blackout
+          ? `<button class="btn btn-hit" data-mark="hit" style="width:100%">Complete${t.qty > 1 ? " now" : ""}</button>`
+          : `<div class="fire-row">
              <button class="btn btn-hit" data-mark="hit">Hit${t.qty > 1 ? " now" : ""}</button>
              <button class="btn btn-splash" data-mark="splash">Splash</button>
-           </div>`
-        : `<button class="btn" data-mark="open" style="width:100%">Undo — back to unfired</button>`}
+           </div>`)
+        : `<button class="btn" data-mark="open" style="width:100%">Undo — back to ${CFG.blackout ? "incomplete" : "unfired"}</button>`}
       ${t.resolved_by && t.status !== "open"
         ? `<div class="resolved-by">Called by ${esc(nameOf(S.members.get(t.resolved_by)) )}<br>${new Date(t.resolved_at).toLocaleString()}</div>`
         : ""}
@@ -1217,7 +1280,7 @@ async function bumpProgress(tile, delta) {
     if (error) return fail("Could not update")(error);
     S.fresh.add(tile.id);
     setTimeout(() => { S.fresh.delete(tile.id); render(); }, 1200);
-    toast(`${tile.name || "Tile"} complete — hit`);
+    toast(`${tile.name || "Tile"} complete` + (CFG.blackout ? "" : " — hit"));
   } else {
     const { error } = await sb.from("tiles").update({ got: next, updated_at: new Date().toISOString() }).eq("id", tile.id);
     if (error) return fail("Could not update")(error);
@@ -1237,7 +1300,7 @@ async function mark(tileId, status) {
   if (status !== "open") {
     S.fresh.add(tileId);
     setTimeout(() => { S.fresh.delete(tileId); render(); }, 1200);
-    toast(status === "hit" ? "Hit confirmed" : "Splash — no ship");
+    toast(status === "hit" ? (CFG.blackout ? "Tile complete" : "Hit confirmed") : "Splash — no ship");
   }
   reload();
 }
@@ -2309,9 +2372,14 @@ function header(ctx, w, sub, mk) {
   ctx.fillText(sub.toUpperCase(), tx, 70);
 
   ctx.textAlign = "right";
-  ctx.fillStyle = C.hit;    ctx.fillText(`${hits} HIT`, w - 210, 46);
-  ctx.fillStyle = C.splash; ctx.fillText(`${spl} SPLASH`, w - 110, 46);
-  ctx.fillStyle = C.gold;   ctx.fillText(`${S.tiles.length - hits - spl} OPEN`, w - 26, 46);
+  if (CFG.blackout) {
+    ctx.fillStyle = C.hit;  ctx.fillText(`${hits + spl} DONE`, w - 130, 46);
+    ctx.fillStyle = C.gold; ctx.fillText(`${S.tiles.length - hits - spl} LEFT`, w - 26, 46);
+  } else {
+    ctx.fillStyle = C.hit;    ctx.fillText(`${hits} HIT`, w - 210, 46);
+    ctx.fillStyle = C.splash; ctx.fillText(`${spl} SPLASH`, w - 110, 46);
+    ctx.fillStyle = C.gold;   ctx.fillText(`${S.tiles.length - hits - spl} OPEN`, w - 26, 46);
+  }
   ctx.fillStyle = C.mute;   ctx.fillText(stamp(), w - 26, 70);
   ctx.textAlign = "left";
 }
@@ -2471,7 +2539,9 @@ function crewMarkdown() {
   const open = S.tiles.length - hits - spl;
 
   const head = `**${CFG.title || "Crew"}**` + (CFG.team ? ` · ${CFG.team}` : "") +
-               `\n${hits} hit · ${spl} splash · ${open} open · ${stamp()}`;
+               (CFG.blackout
+                 ? `\n${hits + spl} done · ${open} left · ${stamp()}`
+                 : `\n${hits} hit · ${spl} splash · ${open} open · ${stamp()}`);
 
   const line = (r, coordsOnly, limit) => {
     let ts = r.tiles;
