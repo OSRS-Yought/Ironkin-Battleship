@@ -502,6 +502,56 @@
     .brand-title{font-size:18px}
   }
 
+  /* ---------------- blackout thematics ---------------- */
+  body[data-blackout="1"]{
+    background:
+      radial-gradient(900px 520px at 50% -14%, #1A0B04 0%, transparent 58%),
+      #050302;
+  }
+  body[data-blackout="1"] .topbar{
+    background:linear-gradient(180deg, rgba(14,8,5,.95), rgba(5,3,2,.7));
+    border-bottom-color:#241408;
+  }
+  body[data-blackout="1"] .brand-sub{
+    color:var(--hit);
+    letter-spacing:.26em;
+    text-shadow:0 0 12px rgba(255,106,30,.4);
+  }
+  body[data-blackout="1"] .board-scroll{
+    background-image:url(./sigil-ghost.png);
+    background-color:transparent;
+  }
+
+  /* done tiles: dimmed art, sigil stamp, DONE band */
+  body[data-blackout="1"] .tile[data-status="hit"],
+  body[data-blackout="1"] .tile[data-status="splash"]{
+    border-color:#2A180C;background:#0A0503;
+  }
+  body[data-blackout="1"] .tile[data-status="hit"] .tile-art,
+  body[data-blackout="1"] .tile[data-status="splash"] .tile-art{
+    filter:saturate(.12) brightness(.22);
+  }
+  body[data-blackout="1"] .tile[data-status="hit"] .stamp svg,
+  body[data-blackout="1"] .tile[data-status="splash"] .stamp svg{display:none}
+  body[data-blackout="1"] .stamp{
+    background:url(./sigil-ember.png) no-repeat center 38%;
+    background-size:56% auto;
+    opacity:.85;
+    filter:drop-shadow(0 0 8px rgba(255,106,30,.35));
+  }
+  body[data-blackout="1"] .stamp-label{
+    font-size:10px;letter-spacing:.34em;
+    color:var(--gold);
+    text-shadow:0 0 10px rgba(229,169,59,.5);
+    bottom:8%;
+  }
+  @keyframes brand-sear{
+    0%{transform:scale(1.5);opacity:0;filter:brightness(3)}
+    55%{transform:scale(.96);opacity:1;filter:brightness(1.4)}
+    100%{transform:scale(1);opacity:.85;filter:brightness(1)}
+  }
+  body[data-blackout="1"] .stamp-fresh.stamp{animation:brand-sear .5s cubic-bezier(.2,.9,.25,1)}
+
   @media (prefers-reduced-motion: reduce){
     *{animation:none !important;transition:none !important}
   }
@@ -887,10 +937,12 @@ async function start(user) {
   $("#appSub").textContent = CFG.subtitle || "";
   $("#appTeam").textContent = CFG.team || "";
   if (CFG.blackout) {
+    document.body.dataset.blackout = "1";
     $("#tHitL").textContent = "Done";
     $("#tOpenL").textContent = "Left";
     $("#tSplashCell").style.display = "none";
     $("#splashChip").style.display = "none";
+    $("#appSub").textContent = "BLACKOUT MODE ACTIVATED";
   }
   document.title = CFG.title || "Battleship Bingo";
   $("#meAv").src = S.me.avatar_url || "";
@@ -915,7 +967,8 @@ $("#gateTitle").replaceChildren(
     i ? [document.createElement("br"), document.createTextNode(word)]
       : [document.createTextNode(word)])
 );
-$("#gateSub").textContent = CFG.subtitle || "";
+$("#gateSub").textContent = CFG.blackout ? "BLACKOUT MODE ACTIVATED" : (CFG.subtitle || "");
+if (CFG.blackout) { $("#gateSub").style.color = "var(--hit)"; $("#gateSub").style.textShadow = "0 0 12px rgba(255,106,30,.4)"; }
 $("#gateTeam").textContent = CFG.team || "";
 
 const RICK = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
@@ -1121,7 +1174,8 @@ function tileNode(t, cols) {
     const stamp = el("div", "stamp" + (S.fresh.has(t.id) ? " stamp-fresh" : ""));
     stamp.innerHTML = t.status === "hit" ? BURST : RINGS;
     b.appendChild(stamp);
-    b.appendChild(el("div", "stamp-label", t.status === "hit" ? (CFG.blackout ? "DONE" : "HIT") : "SPLASH"));
+    b.appendChild(el("div", "stamp-label",
+      CFG.blackout ? "DONE" : (t.status === "hit" ? "HIT" : "SPLASH")));
   }
   return b;
 }
@@ -2435,7 +2489,7 @@ $("#expBoard").addEventListener("click", async () => {
         const k = Math.min(s / art.width, artH / art.height);
         const aw = art.width * k, ah = art.height * k;
         ctx.save();
-        if (t.status !== "open") ctx.filter = "saturate(.25) brightness(.42)";
+        if (t.status !== "open") ctx.filter = CFG.blackout ? "saturate(.12) brightness(.22)" : "saturate(.25) brightness(.42)";
         ctx.drawImage(art, x + (s - aw) / 2, y + (artH - ah) / 2, aw, ah);
         ctx.restore();
       }
@@ -2447,8 +2501,22 @@ $("#expBoard").addEventListener("click", async () => {
         wrap(ctx, t.name, x + s / 2, y + artH + 3, s - 6, 13, 3);
       }
 
-      if (t.status === "hit")    { ctx.fillStyle = "rgba(30,13,5,.55)"; ctx.fillRect(x, y, s, s); burst(ctx, x + s/2, y + s/2, s * .74); }
-      if (t.status === "splash") { ctx.fillStyle = "rgba(12,20,24,.55)"; ctx.fillRect(x, y, s, s); rings(ctx, x + s/2, y + s/2, s * .74); }
+      if (CFG.blackout && t.status !== "open") {
+        ctx.fillStyle = "rgba(5,3,2,.72)"; ctx.fillRect(x, y, s, s);
+        if (mk.ember) {
+          const ms = s * .56, mh = ms * (mk.ember.height / mk.ember.width);
+          ctx.save(); ctx.globalAlpha = .85;
+          ctx.drawImage(mk.ember, x + (s - ms) / 2, y + s * .12, ms, mh);
+          ctx.restore();
+        }
+        ctx.font = '400 11px "Silkscreen", monospace';
+        ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = C.gold;
+        ctx.fillText("D O N E", x + s / 2, y + s - 8);
+      } else {
+        if (t.status === "hit")    { ctx.fillStyle = "rgba(30,13,5,.55)"; ctx.fillRect(x, y, s, s); burst(ctx, x + s/2, y + s/2, s * .74); }
+        if (t.status === "splash") { ctx.fillStyle = "rgba(12,20,24,.55)"; ctx.fillRect(x, y, s, s); rings(ctx, x + s/2, y + s/2, s * .74); }
+      }
 
       ctx.strokeStyle = t.status === "hit" ? "#7A3312" : t.status === "splash" ? "#2E4650" : C.line;
       ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, s - 1, s - 1);
